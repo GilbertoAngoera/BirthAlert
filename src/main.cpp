@@ -27,7 +27,7 @@
 
 using namespace std;
 
-/* If defined, shows terminal debug info */
+/* If defined, allows terminal debug info */
 #define DEBUG
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
@@ -242,7 +242,26 @@ void setup()
 
 /**
  *  @brief    Task to handle sensors protocol
- *  @details  Catch sensors advertising data from devices which matches to specific UUID.
+ *  @details  Catches sensors advertising data from devices which matches to a specific UUID.
+ *            
+ *            Sensors protocol data format:
+ * 
+ *                    **************************************************************************
+ *            Thigh:  * Manuf.Code | Sensor Type | Battery | Temperature | Activity | Position *
+ *                    *   0x5555   |     0x01    |   0xXX  |    0xXXXX   |  0xXXXX  |   0xXX   *
+ *                    **************************************************************************
+ * 
+ *                    ***************************************************************
+ *            Vulva:  * Manuf.Code | Sensor Type | Battery |   Dilation  |    Gap   *
+ *                    *   0x5555   |     0x02    |   0xXX  |    0xXXXX   |  0xXXXX  *
+ *                    ***************************************************************
+ * 
+ *                    ****************************************************************
+ *            Hygro:  * Manuf.Code | Sensor Type | Battery |  Humidity | Temperature *
+ *                    *   0x5555   |     0x03    |   0xXX  |   0xXXXX  |   0xXXXX    *
+ *                    ****************************************************************
+ * 
+ *  @note   Long data fileds (with two bytes) are stored as 'MSB first' endianess.
  *   
  *  @param [in] pvParameters  Not used.
  */
