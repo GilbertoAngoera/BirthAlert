@@ -219,14 +219,14 @@ void setup()
   xTaskCreatePinnedToCore (Sensor_Task, "Sensor Task" // A name just for humans
                           ,8192 // This stack size can be checked & adjusted by reading the Stack Highwater
                           ,NULL //Parameters for the task
-                          ,1    // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+                          ,2    // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
                           ,NULL
                           ,0);  //Task Handle
 
   xTaskCreatePinnedToCore (Cloud_Task, "Cloud Task" // A name just for humans
                           ,8192 // Stack size
                           ,NULL //Parameters for the task
-                          ,2    // Priority
+                          ,1    // Priority
                           ,NULL
                           ,1);  //Task Handle
 
@@ -250,12 +250,10 @@ void setup()
  *            Thigh:  * Manuf.Code | Sensor Type | Battery | Temperature | Activity | Position *
  *                    *   0x5555   |     0x01    |   0xXX  |    0xXXXX   |  0xXXXX  |   0xXX   *
  *                    **************************************************************************
- * 
  *                    ***************************************************************
  *            Vulva:  * Manuf.Code | Sensor Type | Battery |   Dilation  |    Gap   *
  *                    *   0x5555   |     0x02    |   0xXX  |    0xXXXX   |  0xXXXX  *
  *                    ***************************************************************
- * 
  *                    ****************************************************************
  *            Hygro:  * Manuf.Code | Sensor Type | Battery |  Humidity | Temperature *
  *                    *   0x5555   |     0x03    |   0xXX  |   0xXXXX  |   0xXXXX    *
@@ -290,7 +288,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     {
       /* Check for known sensors by UUID */
       if (foundDevices.getDevice(i).haveServiceUUID() &&
-          foundDevices.getDevice(i).isAdvertisingService(testUUID))
+          foundDevices.getDevice(i).isAdvertisingService(simulationUUID))
       {
 #ifdef DEBUG
         Serial.printf("\n");
@@ -425,7 +423,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 
 /**
  *  @brief    Task to publish sensor data to cloud
- *  @details  Sends all available samples in sensor queues to cloud every X seconds.
+ *  @details  Sends all available samples in sensor queues to cloud once every X seconds.
  * 
  *  @param [in] pvParameters  Not used.
  */
@@ -559,8 +557,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       modem.gprsDisconnect();
       SerialMon.println (F("GPRS disconnected"));
     }
+    vTaskDelay (15000 / portTICK_PERIOD_MS);
   }
-  vTaskDelay (15000 / portTICK_PERIOD_MS);
 }
 
 /**
