@@ -19,6 +19,7 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
+#include <WiFi.h>
 #include <BLEAdvertisedDevice.h>
 #include "ThingSpeak.h"
 #include <queue>
@@ -66,16 +67,14 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
   }
 };
 
-/**
- *  SIM800L definitions
+/*
+ *  WiFi definitions
  */
+WiFiClient client;
 
-// Your GPRS credentials (leave empty, if not needed)
-const char apn[] = "zap.vivo.com.br"; // APN (example: internet.vodafone.pt) use https://wiki.apnchanger.org
-const char gprsUser[] = "vivo";       // GPRS User
-const char gprsPass[] = "vivo";       // GPRS Password
-// SIM card PIN (leave empty, if not defined)
-const char simPIN[] = "";
+// Your WiFi credentials
+const char ssid[] = "Wifi_da_Vovo";       // WiFi SSID
+const char pass[] = "wifi.gilberto";      // Wifi Password
 
 /* ThingSpeak data hosting info */
 #define THIGH_CHANNEL_ID 1442488 // Channel number
@@ -85,66 +84,10 @@ const char simPIN[] = "";
 #define VULVA_WRITE_APIKEY "H44JEIQGRH2EIF44"
 #define HYGRO_WRITE_APIKEY "AIBH07K1DN2OAWS0"
 
-// TTGO T-Call pins
-#define MODEM_RST 5
-#define MODEM_PWKEY 4
-#define MODEM_POWER_ON 23
-#define MODEM_TX 27
-#define MODEM_RX 26
-#define I2C_SDA 21
-#define I2C_SCL 22
-
-// Set serial for debug console (to Serial Monitor, default speed 115200)
-#define SerialMon Serial
-// Set serial for AT commands (to SIM800 module)
-#define SerialAT Serial1
-
-// Configure TinyGSM library
-#define TINY_GSM_MODEM_SIM800   // Modem is SIM800
-#define TINY_GSM_RX_BUFFER 1024 // Set RX buffer to 1Kb
-
-// Define the serial console for debug prints, if needed
-//#define DUMP_AT_COMMANDS
-
-#include <Wire.h>
-#include <TinyGsmClient.h>
-
-#ifdef DUMP_AT_COMMANDS
-#include <StreamDebugger.h>
-StreamDebugger debugger(SerialAT, SerialMon);
-TinyGsm modem(debugger);
-#else
-TinyGsm modem(SerialAT);
-#endif
-
-// I2C for SIM800 (to keep it running when powered from battery)
-TwoWire I2CPower = TwoWire(0);
-
-// TinyGSM Client for Internet connection
-TinyGsmClient client(modem);
-
-#define IP5306_ADDR 0x75
-#define IP5306_REG_SYS_CTL0 0x00
-
 /* Prototypes */
 void Sensor_Task(void *pvParameters);
 void Cloud_Task(void *pvParameters);
 void UI_Task(void *pvParameters);
-
-bool setPowerBoostKeepOn(int en)
-{
-  I2CPower.beginTransmission(IP5306_ADDR);
-  I2CPower.write(IP5306_REG_SYS_CTL0);
-  if (en)
-  {
-    I2CPower.write(0x37); // Set bit1: 1 enable 0 disable boost keep on
-  }
-  else
-  {
-    I2CPower.write(0x35); // 0x37 is default reg value
-  }
-  return I2CPower.endTransmission() == 0;
-}
 
 void setup()
 {
@@ -172,46 +115,8 @@ void setup()
   pBLEScan->setWindow(99); // less or equal setInterval value
 
   /**
-   *  SIM800L environment setup
-   */
-
-  // Set serial monitor debugging window baud rate to 115200
-  SerialMon.begin(115200);
-
-  // Start I2C communication
-  I2CPower.begin(I2C_SDA, I2C_SCL, 400000);
-
-  // Keep power when running from battery
-  bool isOk = setPowerBoostKeepOn(1);
-  SerialMon.println(String("IP5306 KeepOn ") + (isOk ? "OK" : "FAIL"));
-
-  // Set modem reset, enable, power pins
-  pinMode(MODEM_PWKEY, OUTPUT);
-  pinMode(MODEM_RST, OUTPUT);
-  pinMode(MODEM_POWER_ON, OUTPUT);
-  digitalWrite(MODEM_PWKEY, LOW);
-  digitalWrite(MODEM_RST, HIGH);
-  digitalWrite(MODEM_POWER_ON, HIGH);
-
-  // Set GSM module baud rate and UART pins
-  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
-  delay(3000);
-
-  // Restart SIM800 module, it takes quite some time
-  // To skip it, call init() instead of restart()
-  SerialMon.println("Initializing modem...");
-  modem.restart();
-  // use modem.init() if you don't need the complete restart
-
-  // Unlock your SIM card with a PIN if needed
-  if (strlen(simPIN) && modem.getSimStatus() != 3)
-  {
-    modem.simUnlock(simPIN);
-  }
-
-  /**
-   *  Initializes ThingSpeak client
-   */
+  *  Initializes ThingSpeak client
+  */
   ThingSpeak.begin(client);
 
   /* RTOS tasks creation to run independently. */
@@ -436,17 +341,19 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
   while (1)
   {
-    /* Connect to APN */
-    SerialMon.print ("Connecting to APN: ");
-    SerialMon.print (apn);
-    if (!modem.gprsConnect (apn, gprsUser, gprsPass))
+    // Connect or reconnect to WiFi
+    if(WiFi.status() != WL_CONNECTED)
     {
-      SerialMon.println (" fail");
+      Serial.print("Attempting to connect to SSID: ");
+      Serial.println(ssid);
+      while(WiFi.status() != WL_CONNECTED)
+      {
+        WiFi.begin(ssid, pass);  // Connect to WPA/WPA2 network. Change this line if using open or WEP network
+        Serial.print(".");
+        delay(5000);     
+      } 
+      Serial.println("\nConnected.");
     }
-    else
-    {
-      /* APN Connected */
-      SerialMon.println (" OK");
 
 #ifdef PUBLISH_RANDOM_DATA
       // Set the data host fields with random values
@@ -526,7 +433,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
       /* Publishes Thigh Sensor available data */
       while (thighSensorQueue.size() != 0)
-      {
+        {
         /* Enter critical session to access the queue */
         xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
@@ -553,11 +460,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           Serial.println ("Problem updating Thigh sensor channel. HTTP error code " + String(ret));
       }
 #endif
-      /* Disconnect from APN */
-      modem.gprsDisconnect();
-      SerialMon.println (F("GPRS disconnected"));
-    }
-    vTaskDelay (15000 / portTICK_PERIOD_MS);
+      vTaskDelay (15000 / portTICK_PERIOD_MS);
   }
 }
 
