@@ -28,7 +28,7 @@
 using namespace std;
 
 /* If defined, allows terminal debug info */
-#define DEBUG
+// #define DEBUG
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
@@ -48,10 +48,8 @@ SemaphoreHandle_t SensorQueueMutex;
  */
 
 // The remote service we wish to connect to.
-static BLEUUID sensorUUID("befab990-ddb3-11eb-ba80-0242ac130004");
+static BLEUUID sensorUUID("c1462ae7-9493-4018-b6d3-dda50387989c");
 static BLEUUID testUUID("c1462ae7-9493-4018-b6d3-dda50387989c");
-static BLEUUID simulationUUID("a995027a-0f33-4d57-8c7b-575a66f812b1");
-static BLEUUID simulUUID("1800");
 
 int scanTime = 1; //In seconds
 BLEScan *pBLEScan;
@@ -288,7 +286,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     {
       /* Check for known sensors by UUID */
       if (foundDevices.getDevice(i).haveServiceUUID() &&
-          foundDevices.getDevice(i).isAdvertisingService(simulationUUID))
+          foundDevices.getDevice(i).isAdvertisingService(sensorUUID))
       {
 #ifdef DEBUG
         Serial.printf("\n");
