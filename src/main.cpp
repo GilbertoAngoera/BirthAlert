@@ -20,7 +20,7 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
-#include "ThingSpeak.h"
+#include <ArduinoHttpClient.h>
 #include <queue>
 #include <time.h>
 #include "router.h"
@@ -71,19 +71,24 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
  */
 
 // Your GPRS credentials (leave empty, if not needed)
-const char apn[] = "zap.vivo.com.br"; // APN (example: internet.vodafone.pt) use https://wiki.apnchanger.org
+const char apn[] = "zap.vivo.com.br"; // APN
 const char gprsUser[] = "vivo";       // GPRS User
 const char gprsPass[] = "vivo";       // GPRS Password
 // SIM card PIN (leave empty, if not defined)
 const char simPIN[] = "";
 
-/* ThingSpeak data hosting info */
-#define THIGH_CHANNEL_ID 1442488 // Channel number
-#define VULVA_CHANNEL_ID 1442490
-#define HYGRO_CHANNEL_ID 1442491
-#define THIGH_WRITE_APIKEY "QA97KP6M0CU4QGKG" // Channel write API Key
-#define VULVA_WRITE_APIKEY "H44JEIQGRH2EIF44"
-#define HYGRO_WRITE_APIKEY "AIBH07K1DN2OAWS0"
+// Server details
+const char server[]   = "vsh.pp.ua";
+const char resource[] = "/TinyGSM/logo.txt";
+const int  port       = 80;
+
+// /* ThingSpeak data hosting info */
+// #define THIGH_CHANNEL_ID 1442488 // Channel number
+// #define VULVA_CHANNEL_ID 1442490
+// #define HYGRO_CHANNEL_ID 1442491
+// #define THIGH_WRITE_APIKEY "QA97KP6M0CU4QGKG" // Channel write API Key
+// #define VULVA_WRITE_APIKEY "H44JEIQGRH2EIF44"
+// #define HYGRO_WRITE_APIKEY "AIBH07K1DN2OAWS0"
 
 // TTGO T-Call pins
 #define MODEM_RST 5
@@ -121,7 +126,8 @@ TinyGsm modem(SerialAT);
 TwoWire I2CPower = TwoWire(0);
 
 // TinyGSM Client for Internet connection
-TinyGsmClient client(modem);
+TinyGsmClient client (modem);
+HttpClient    http (client, server, port);
 
 #define IP5306_ADDR 0x75
 #define IP5306_REG_SYS_CTL0 0x00
@@ -212,7 +218,7 @@ void setup()
   /**
    *  Initializes ThingSpeak client
    */
-  ThingSpeak.begin(client);
+  // ThingSpeak.begin(client);
 
   /* RTOS tasks creation to run independently. */
 
@@ -481,19 +487,22 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Exit critical session */
         xSemaphoreGive (SensorQueueMutex);
 
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, vulvaSensor.battery);
-        ThingSpeak.setField (2, vulvaSensor.dilation);
-        ThingSpeak.setField (3, vulvaSensor.gap);
+        /* Send HTTP Request */
 
-        ThingSpeak.setStatus (String (vulvaSensorQueue.size(), 10));
+        
+        // /* Set data host fields with queue values */
+        // ThingSpeak.setField (1, vulvaSensor.battery);
+        // ThingSpeak.setField (2, vulvaSensor.dilation);
+        // ThingSpeak.setField (3, vulvaSensor.gap);
 
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (VULVA_CHANNEL_ID, VULVA_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Vulva sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Vulva sensor channel. HTTP error code " + String(ret));
+        // ThingSpeak.setStatus (String (vulvaSensorQueue.size(), 10));
+
+        // /* Send fields to data host channel */
+        // ret = ThingSpeak.writeFields (VULVA_CHANNEL_ID, VULVA_WRITE_APIKEY);
+        // if (ret == 200)
+        //   Serial.println ("Vulva sensor channel update successful.");
+        // else
+        //   Serial.println ("Problem updating Vulva sensor channel. HTTP error code " + String(ret));
       }
 
       /* Publishes Hygrometer Sensor available data */
@@ -509,19 +518,21 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Exit critical session */
         xSemaphoreGive (SensorQueueMutex);
 
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, hygroSensor.battery);
-        ThingSpeak.setField (2, hygroSensor.temperature);
-        ThingSpeak.setField (3, hygroSensor.humidity);
+        /* Send HTTP Request */
 
-        ThingSpeak.setStatus (String (hygroSensorQueue.size(), 10));
+        // /* Set data host fields with queue values */
+        // ThingSpeak.setField (1, hygroSensor.battery);
+        // ThingSpeak.setField (2, hygroSensor.temperature);
+        // ThingSpeak.setField (3, hygroSensor.humidity);
 
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (HYGRO_CHANNEL_ID, HYGRO_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Hygro sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Hygro sensor channel. HTTP error code " + String(ret));
+        // ThingSpeak.setStatus (String (hygroSensorQueue.size(), 10));
+
+        // /* Send fields to data host channel */
+        // ret = ThingSpeak.writeFields (HYGRO_CHANNEL_ID, HYGRO_WRITE_APIKEY);
+        // if (ret == 200)
+        //   Serial.println ("Hygro sensor channel update successful.");
+        // else
+        //   Serial.println ("Problem updating Hygro sensor channel. HTTP error code " + String(ret));
       }
 
       /* Publishes Thigh Sensor available data */
@@ -537,20 +548,22 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Exit critical session */
         xSemaphoreGive (SensorQueueMutex);
 
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, thighSensor.battery);
-        ThingSpeak.setField (2, thighSensor.temperature);
-        ThingSpeak.setField (3, thighSensor.activity);
-        ThingSpeak.setField (4, thighSensor.position);
+        /* Send HTTP Request */
 
-        ThingSpeak.setStatus (String (thighSensorQueue.size(), 10));
+        // /* Set data host fields with queue values */
+        // ThingSpeak.setField (1, thighSensor.battery);
+        // ThingSpeak.setField (2, thighSensor.temperature);
+        // ThingSpeak.setField (3, thighSensor.activity);
+        // ThingSpeak.setField (4, thighSensor.position);
 
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (THIGH_CHANNEL_ID, THIGH_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Thigh sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Thigh sensor channel. HTTP error code " + String(ret));
+        // ThingSpeak.setStatus (String (thighSensorQueue.size(), 10));
+
+        // /* Send fields to data host channel */
+        // ret = ThingSpeak.writeFields (THIGH_CHANNEL_ID, THIGH_WRITE_APIKEY);
+        // if (ret == 200)
+        //   Serial.println ("Thigh sensor channel update successful.");
+        // else
+        //   Serial.println ("Problem updating Thigh sensor channel. HTTP error code " + String(ret));
       }
 #endif
       /* Disconnect from APN */
