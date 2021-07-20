@@ -21,6 +21,7 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
+#include <HTTPClient.h>
 #include <queue>
 #include <time.h>
 #include "router.h"
@@ -486,30 +487,51 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           }
           */
 
-          // Create JSON doc and write attributes
-          const size_t capacity = JSON_OBJECT_SIZE(6);
-          DynamicJsonDocument doc(capacity);
-          doc["macAddress"]  = String (thighSensor.header.addr);
-          doc["battery"]     = String (thighSensor.battery) ;
-          doc["timeStamp"]   = String (thighSensor.header.time);
-          doc["temperature"] = String (thighSensor.temperature);
-          doc["active"]      = String (thighSensor.activity);
-          doc["token"]       = apiToken;
+          HTTPClient http;
 
-          // String httpRequestData = "{macAdress:"   + String (thighSensor.header.addr) +
-          //                           "battery:"     + String (thighSensor.battery) +
-          //                           "timeStamp:"   + String (thighSensor.header.time) +
-          //                           "temperature:" + String (thighSensor.temperature) +
-          //                           "active:"      + String (thighSensor.activity) +
-          //                           "token:"       + apiToken + "}";
+          http.begin (resource);  
+          http.addHeader ("Content-Type", "application/json");
+
+          StaticJsonDocument<200> doc;
+
+          // Add values in the document
+          doc["sensor"] = "gps";
+          doc["time"] = 1351824120;
+
+          String requestBody;
+          serializeJson (doc, requestBody);
           
-          client.print(String("POST ") + resource + " HTTP/1.1\r\n");
-          client.print(String("Host: ") + server + "\r\n");
-          client.println("Content-Type: application/json");
-          client.println("Connection: close");
-          client.print("Content-Length: ");
-          client.println(measureJson(doc));
+          int httpResponseCode = http.POST (requestBody);
+      
+          if(httpResponseCode > 0)
+          {
+            String response = http.getString();                       
+            
+            Serial.println (httpResponseCode);   
+            Serial.println (response);
+          }
+          else 
+          {
+            Serial.printf ("Error occurred while sending HTTP POST: %s\n", httpClient.errorToString(statusCode).c_str());
+          }          
+          
+          // // Create JSON doc and write attributes
+          // const size_t capacity = JSON_OBJECT_SIZE(6);
+          // DynamicJsonDocument doc(capacity);
+          // doc["macAddress"]  = String (thighSensor.header.addr);
+          // doc["battery"]     = String (thighSensor.battery) ;
+          // doc["timeStamp"]   = String (thighSensor.header.time);
+          // doc["temperature"] = String (thighSensor.temperature);
+          // doc["active"]      = String (thighSensor.activity);
+          // doc["token"]       = apiToken;
 
+          // client.print(String("POST ") + resource + " HTTP/1.1\r\n");
+          // // client.print(String("Host: ") + server + "\r\n");
+          // client.println("Content-Type: application/json");
+          // client.println("Connection: close");
+          // client.print("Content-Length: ");
+          // client.println(measureJson(doc));
+          
           // Prints doc to client
           serializeJson(doc, client);
 
