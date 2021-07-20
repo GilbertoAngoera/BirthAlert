@@ -13,6 +13,7 @@
  */
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -76,8 +77,8 @@ const char gprsPass[] = "vivo";       // GPRS Password
 const char simPIN[] = "";             // SIM card PIN (leave empty, if not defined)
 
 // Server details
-const char server[] = "birthalert.angoeratech.com.br";
-const char resource[] = "/api/setSensorCoxa";
+const char server[] = "angoeratech.com.br";
+const char resource[] = "http://birthalert.angoeratech.com.br/api/setSensorCoxa";
 const char apiToken[] = "117f08a0a9c5808e93a4c246ec0f2dab";
 const int  port = 80;
 
@@ -451,8 +452,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         SerialMon.println(" OK");
 
         /* Publishes Thigh Sensor available data */
-        while (thighSensorQueue.size() != 0)
-        {
+        // while (thighSensorQueue.size() != 0)
+        // {
           /* Enter critical session to access the queue */
           xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
@@ -485,20 +486,32 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           }
           */
 
-          String httpRequestData = "{macAdress:"    + String (thighSensor.header.addr) +
-                                    "&battery:"     + String (thighSensor.battery) +
-                                    "&timeStamp:"   + String (thighSensor.header.time) +
-                                    "&temperature:" + String (thighSensor.temperature) +
-                                    "&active:"      + String (thighSensor.activity) +
-                                    "&token:"       + apiToken + "}";
+          // Create JSON doc and write attributes
+          const size_t capacity = JSON_OBJECT_SIZE(6);
+          DynamicJsonDocument doc(capacity);
+          doc["macAddress"]  = String (thighSensor.header.addr);
+          doc["battery"]     = String (thighSensor.battery) ;
+          doc["timeStamp"]   = String (thighSensor.header.time);
+          doc["temperature"] = String (thighSensor.temperature);
+          doc["active"]      = String (thighSensor.activity);
+          doc["token"]       = apiToken;
+
+          // String httpRequestData = "{macAdress:"   + String (thighSensor.header.addr) +
+          //                           "battery:"     + String (thighSensor.battery) +
+          //                           "timeStamp:"   + String (thighSensor.header.time) +
+          //                           "temperature:" + String (thighSensor.temperature) +
+          //                           "active:"      + String (thighSensor.activity) +
+          //                           "token:"       + apiToken + "}";
           
           client.print(String("POST ") + resource + " HTTP/1.1\r\n");
           client.print(String("Host: ") + server + "\r\n");
           client.println("Content-Type: application/json");
+          client.println("Connection: close");
           client.print("Content-Length: ");
-          client.println(httpRequestData.length());
-          client.println();
-          client.println(httpRequestData);
+          client.println(measureJson(doc));
+
+          // Prints doc to client
+          serializeJson(doc, client);
 
           /* Print response */
           unsigned long timeout = millis();
@@ -522,7 +535,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           // client.println(httpRequestData.length());
           // client.println();
           // client.println(httpRequestData);
-        }
+        // }
 
         /* Publishes Vulva Sensor available data */
         while (vulvaSensorQueue.size() != 0)
