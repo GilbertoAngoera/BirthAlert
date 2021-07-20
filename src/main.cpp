@@ -78,6 +78,7 @@ const char simPIN[] = "";             // SIM card PIN (leave empty, if not defin
 // Server details
 const char server[] = "birthalert.angoeratech.com.br";
 const char resource[] = "/api/setSensorCoxa";
+const char apiToken[] = "117f08a0a9c5808e93a4c246ec0f2dab";
 const int  port = 80;
 
 // TTGO T-Call pins
@@ -463,8 +464,64 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           xSemaphoreGive (SensorQueueMutex);
 
           /* Send HTTP Request */
+          SerialMon.println("Performing HTTP POST request...");
 
+          // Prepare your HTTP POST request data (Temperature in Celsius degrees)
+          // String httpRequestData = "api_key=" + apiKeyValue + "&value1=" + String(bme.readTemperature())
+          //                       + "&value2=" + String(bme.readHumidity()) + "&value3=" + String(bme.readPressure()/100.0F) + "";
+   
+          /*
+          POST /transactions/sensorcoxa HTTP/1.1
+          Host: {{ENDPOINT}}
+          Content-Type: application/json
+          Content-Length: 160
+          {
+              "macAdrees": "12:09:78:ab:c6:7f"
+              "battery": "99"
+              "timeStamp": 1623237859,
+              "temperature": 36.15,
+              "position": 0,
+              "active": 13450,
+          }
+          */
 
+          String httpRequestData = "{macAdress:"    + String (thighSensor.header.addr) +
+                                    "&battery:"     + String (thighSensor.battery) +
+                                    "&timeStamp:"   + String (thighSensor.header.time) +
+                                    "&temperature:" + String (thighSensor.temperature) +
+                                    "&active:"      + String (thighSensor.activity) +
+                                    "&token:"       + apiToken + "}";
+          
+          client.print(String("POST ") + resource + " HTTP/1.1\r\n");
+          client.print(String("Host: ") + server + "\r\n");
+          client.println("Content-Type: application/json");
+          client.print("Content-Length: ");
+          client.println(httpRequestData.length());
+          client.println();
+          client.println(httpRequestData);
+
+          /* Print response */
+          unsigned long timeout = millis();
+          while (client.connected() && millis() - timeout < 10000L)
+          {
+            // Print available data (HTTP response from server)
+            while (client.available())
+            {
+              char c = client.read();
+              SerialMon.print(c);
+              timeout = millis();
+            }
+          }      
+          SerialMon.println();
+
+          // client.print(String("POST ") + resource + " HTTP/1.1\r\n");
+          // client.print(String("Host: ") + server + "\r\n");
+          // client.println("Connection: close");
+          // client.println("Content-Type: application/x-www-form-urlencoded");
+          // client.print("Content-Length: ");
+          // client.println(httpRequestData.length());
+          // client.println();
+          // client.println(httpRequestData);
         }
 
         /* Publishes Vulva Sensor available data */
@@ -504,19 +561,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
         }
    
-        unsigned long timeout = millis();
-        while (client.connected() && millis() - timeout < 10000L)
-        {
-        
-          // Print available data (HTTP response from server)
-          while (client.available())
-          {
-            char c = client.read();
-            SerialMon.print(c);
-            timeout = millis();
-          }
-        }      
-        SerialMon.println();
+
     
         // Close client and disconnect from Server
         client.stop();
