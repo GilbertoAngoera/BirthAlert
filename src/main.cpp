@@ -28,8 +28,8 @@
 using namespace std;
 
 /* If defined, allows terminal debug info */
-// #define DEBUG
-// #define DEBUG_EXAMPLE
+#define DEBUG
+#define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
@@ -48,7 +48,7 @@ SemaphoreHandle_t SensorQueueMutex;
  */
 
 // The remote service we wish to connect to.
-static BLEUUID sensorUUID("c1462ae7-9493-4018-b6d3-dda50387989c");
+static BLEUUID sensorUUID("befab990-ddb3-11eb-ba80-0242ac130004");
 static BLEUUID testUUID("c1462ae7-9493-4018-b6d3-dda50387989c");
 
 int scanTime = 1; //In seconds
@@ -59,7 +59,11 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
   void onResult(BLEAdvertisedDevice advertisedDevice)
   {
 #ifdef DEBUG_EXAMPLE
-    Serial.printf("Advertised Device: %s \n", advertisedDevice.toString().c_str());
+    // if (advertisedDevice.haveServiceUUID())
+    // {
+    Serial.printf ("UUID: %s ", advertisedDevice.getServiceDataUUID().toString().c_str());
+    // }
+    Serial.printf ("Advertised Device: %s \n", advertisedDevice.toString().c_str());
 #endif
   }
 };
@@ -275,8 +279,11 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 
   while (1)
   {
+    /* Get all available devices */
     BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
+
     int devicesCount = foundDevices.getCount();
+    
 #ifdef DEBUG_EXAMPLE
     Serial.print("Devices found: ");
     Serial.println(devicesCount);
@@ -285,8 +292,8 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     for (int i = 0; i < devicesCount; i++)
     {
       /* Check for known sensors by UUID */
-      if (foundDevices.getDevice(i).haveServiceUUID() &&
-          foundDevices.getDevice(i).isAdvertisingService(sensorUUID))
+      if (foundDevices.getDevice(i).haveServiceUUID() && foundDevices.getDevice(i).isAdvertisingService(sensorUUID))
+      // if (foundDevices.getDevice(i).getServiceUUID().equals(sensorUUID))
       {
 #ifdef DEBUG
         Serial.printf("\n");
