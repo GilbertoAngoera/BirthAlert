@@ -29,7 +29,7 @@ using namespace std;
 
 /* If defined, allows terminal debug info */
 #define DEBUG
-#define DEBUG_EXAMPLE
+// #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
@@ -59,10 +59,6 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
   void onResult(BLEAdvertisedDevice advertisedDevice)
   {
 #ifdef DEBUG_EXAMPLE
-    // if (advertisedDevice.haveServiceUUID())
-    // {
-    Serial.printf ("UUID: %s ", advertisedDevice.getServiceDataUUID().toString().c_str());
-    // }
     Serial.printf ("Advertised Device: %s \n", advertisedDevice.toString().c_str());
 #endif
   }
