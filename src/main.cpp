@@ -5,15 +5,12 @@
  * 
  *  References: 
  *    - Cloud Publishing: Rui Santos at https://RandomNerdTutorials.com/esp32-sim800l-publish-data-to-cloud/
- *                        "Permission is hereby granted, free of charge, to any person obtaining a copy
- *                         of this software and associated documentation files.  
- *                         The above copyright notice and this permission notice shall be included in all
- *                         copies or substantial portions of the Software."
  *    - Data Hosting:  https://nothans.com/thingspeak-tutorials/arduino/send-data-to-thingspeak-with-arduino
  */
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <ArduinoHttpClient.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -28,7 +25,7 @@
 using namespace std;
 
 /* If defined, allows terminal debug info */
-#define DEBUG
+// #define DEBUG
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
@@ -421,7 +418,6 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
  */
 void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 {
-  int ret = 0;
   thigh_sensor_data_t thighSensor;
   vulva_sensor_data_t vulvaSensor;
   hygrometer_sensor_data_t hygroSensor;
@@ -482,54 +478,80 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           }
           */
 
+          HttpClient http = HttpClient (client, server, port);
+
           /* JSON request data */
-          String httpRequestData = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+          String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
                                     "\"battery\":\""     + String (thighSensor.battery)     + "\","
                                     "\"timeStamp\":"     + String (1623237859)              + ","
                                     "\"temperature\":"   + String (thighSensor.temperature) + ","
                                     "\"active\":"        + String (thighSensor.activity)    + ","
                                     "\"position\":"      + String (thighSensor.position)    + ","
                                     "\"token\":"         + String (apiKey)                  + "}";
+
+          http.post (resource, "Content-Type: application/json", httpRequestBody);
+
+          SerialMon.println ();
+          SerialMon.println (httpRequestBody);
+          SerialMon.println ();
+
+          // read the status code and body of the response
+          int statusCode = http.responseStatusCode();
+          String response = http.responseBody();
+
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+          Serial.print("Response: ");
+          Serial.println(response);          
+
+          // /* JSON request data */
+          // String httpRequestData = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+          //                           "\"battery\":\""     + String (thighSensor.battery)     + "\","
+          //                           "\"timeStamp\":"     + String (1623237859)              + ","
+          //                           "\"temperature\":"   + String (thighSensor.temperature) + ","
+          //                           "\"active\":"        + String (thighSensor.activity)    + ","
+          //                           "\"position\":"      + String (thighSensor.position)    + ","
+          //                           "\"token\":"         + String (apiKey)                  + "}";
         
-          // // Create JSON doc and write attributes
+          // Create JSON doc and write attributes
           // const size_t capacity = JSON_OBJECT_SIZE(7);
           // DynamicJsonDocument doc(capacity);
 
           // doc["macAddress"]  = String (thighSensor.header.addr);
           // doc["battery"]     = String (thighSensor.battery) ;
-          // doc["timeStamp"]   = String (thighSensor.header.time);
+          // doc["timeStamp"]   = 1623237859;
           // doc["temperature"] = thighSensor.temperature;
           // doc["active"]      = thighSensor.activity;
           // doc["position"]    = thighSensor.activity;
           // doc["token"]       = apiKey;
 
-          client.print (String("POST ") + resource + " HTTP/1.1\r\n");
-          client.print (String("Host: ") + server + "\r\n");
-          client.println ("Content-Type: application/json");
-          client.println ("Connection: close");
-          client.print ("Content-Length: ");
-          client.println (httpRequestData.length());
-          client.println (httpRequestData);
+          // client.print (String("POST ") + resource + " HTTP/1.1\r\n");
+          // client.print (String("Host: ") + server + "\r\n");
+          // client.println ("Content-Type: application/json");
+          // // client.println ("Connection: close");
+          // client.print ("Content-Length: ");
+          // // client.println (httpRequestData.length());
+          // // client.println (httpRequestData);
           // client.println(measureJson(doc));
           
           // Prints doc to client
           // serializeJson (doc, client);
 
-          SerialMon.println (httpRequestData);
+          // SerialMon.println (httpRequestData);
 
           /* Print response */
-          unsigned long timeout = millis();
-          while (client.connected() && millis() - timeout < 10000L)
-          {
-            // Print available data (HTTP response from server)
-            while (client.available())
-            {
-              char c = client.read();
-              SerialMon.print(c);
-              timeout = millis();
-            }
-          }      
-          SerialMon.println();
+          // unsigned long timeout = millis();
+          // while (client.connected() && millis() - timeout < 10000L)
+          // {
+          //   // Print available data (HTTP response from server)
+          //   while (client.available())
+          //   {
+          //     char c = client.read();
+          //     SerialMon.print(c);
+          //     timeout = millis();
+          //   }
+          // }      
+          // SerialMon.println();
         // }
 
         /* Publishes Vulva Sensor available data */
