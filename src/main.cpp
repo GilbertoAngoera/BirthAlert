@@ -77,9 +77,9 @@ const char gprsPass[] = "vivo";       // GPRS Password
 const char simPIN[] = "";             // SIM card PIN (leave empty, if not defined)
 
 // Server details
-const char server[] = "angoeratech.com.br";
-const char resource[] = "http://birthalert.angoeratech.com.br/api/setSensorCoxa";
-const char apiToken[] = "117f08a0a9c5808e93a4c246ec0f2dab";
+const char server[] = "birthalert.angoeratech.com.br";
+const char resource[] = "/api/setSensorCoxa";
+const char apiKey[] = "117f08a0a9c5808e93a4c246ec0f2dab";
 const int  port = 80;
 
 // TTGO T-Call pins
@@ -280,7 +280,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     {
       /* Check for known sensors by UUID */
       if (foundDevices.getDevice(i).haveServiceUUID() &&
-          foundDevices.getDevice(i).isAdvertisingService(simulationUUID))
+          foundDevices.getDevice(i).isAdvertisingService(sensorUUID))
       {
 #ifdef DEBUG
         Serial.printf("\n");
@@ -464,15 +464,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Exit critical session */
           xSemaphoreGive (SensorQueueMutex);
 
-
-
           /* Send HTTP Request */
           SerialMon.println("Performing HTTP POST request...");
-
-          // Prepare your HTTP POST request data (Temperature in Celsius degrees)
-          // String httpRequestData = "api_key=" + apiKeyValue + "&value1=" + String(bme.readTemperature())
-          //                       + "&value2=" + String(bme.readHumidity()) + "&value3=" + String(bme.readPressure()/100.0F) + "";
-   
+  
           /*
           POST /transactions/sensorcoxa HTTP/1.1
           Host: {{ENDPOINT}}
@@ -488,47 +482,40 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           }
           */
 
-          // HttpClient http = HttpClient(client, server, port);
-          
-          // // JSON data to send with HTTP POST
-          // String httpRequestData = "{\"api_key\":\"" + String(apiToken) +
-          //                           "\",\"field1\":\"" + String(random(40)) +
-          //                           "\"}";
+          /* JSON request data */
+          String httpRequestData = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+                                    "\"battery\":\""     + String (thighSensor.battery)     + "\","
+                                    "\"timeStamp\":"     + String (1623237859)              + ","
+                                    "\"temperature\":"   + String (thighSensor.temperature) + ","
+                                    "\"active\":"        + String (thighSensor.activity)    + ","
+                                    "\"position\":"      + String (thighSensor.position)    + ","
+                                    "\"token\":"         + String (apiKey)                  + "}";
+        
+          // // Create JSON doc and write attributes
+          // const size_t capacity = JSON_OBJECT_SIZE(7);
+          // DynamicJsonDocument doc(capacity);
 
-          // Serial.println("making POST request");
-          // String contentType = "application/x-www-form-urlencoded";
-          // String postData = "name=Alice&age=12";
+          // doc["macAddress"]  = String (thighSensor.header.addr);
+          // doc["battery"]     = String (thighSensor.battery) ;
+          // doc["timeStamp"]   = String (thighSensor.header.time);
+          // doc["temperature"] = thighSensor.temperature;
+          // doc["active"]      = thighSensor.activity;
+          // doc["position"]    = thighSensor.activity;
+          // doc["token"]       = apiKey;
 
-          // http.post("/", contentType, postData);
-
-          // // read the status code and body of the response
-          // int statusCode = http.responseStatusCode();
-          // String response = http.responseBody();
-
-          // Serial.print("Status code: ");
-          // Serial.println(statusCode);
-          // Serial.print("Response: ");
-          // Serial.println(response);
-               
-          // Create JSON doc and write attributes
-          const size_t capacity = JSON_OBJECT_SIZE(6);
-          DynamicJsonDocument doc(capacity);
-          doc["macAddress"]  = String (thighSensor.header.addr);
-          doc["battery"]     = String (thighSensor.battery) ;
-          doc["timeStamp"]   = String (thighSensor.header.time);
-          doc["temperature"] = String (thighSensor.temperature);
-          doc["active"]      = String (thighSensor.activity);
-          doc["token"]       = apiToken;
-
-          client.print(String("POST ") + resource + " HTTP/1.1\r\n");
-          client.print(String("Host: ") + server + "\r\n");
-          client.println("Content-Type: application/json");
-          client.println("Connection: close");
-          client.print("Content-Length: ");
-          client.println(measureJson(doc));
+          client.print (String("POST ") + resource + " HTTP/1.1\r\n");
+          client.print (String("Host: ") + server + "\r\n");
+          client.println ("Content-Type: application/json");
+          client.println ("Connection: close");
+          client.print ("Content-Length: ");
+          client.println (httpRequestData.length());
+          client.println (httpRequestData);
+          // client.println(measureJson(doc));
           
           // Prints doc to client
-          serializeJson(doc, client);
+          // serializeJson (doc, client);
+
+          SerialMon.println (httpRequestData);
 
           /* Print response */
           unsigned long timeout = millis();
@@ -543,15 +530,6 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
             }
           }      
           SerialMon.println();
-
-          // client.print(String("POST ") + resource + " HTTP/1.1\r\n");
-          // client.print(String("Host: ") + server + "\r\n");
-          // client.println("Connection: close");
-          // client.println("Content-Type: application/x-www-form-urlencoded");
-          // client.print("Content-Length: ");
-          // client.println(httpRequestData.length());
-          // client.println();
-          // client.println(httpRequestData);
         // }
 
         /* Publishes Vulva Sensor available data */
@@ -568,7 +546,6 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           xSemaphoreGive (SensorQueueMutex);
 
           /* Send HTTP Request */
-
           
 
         }
@@ -588,11 +565,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
           /* Send HTTP Request */
 
-
         }
-   
-
-    
         // Close client and disconnect from Server
         client.stop();
         SerialMon.println(F("Server disconnected"));
