@@ -481,25 +481,25 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           HttpClient http = HttpClient (client, server, port);
 
           /* JSON request data */
-          String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
-                                    "\"battery\":\""     + String (thighSensor.battery)     + "\","
-                                    "\"timeStamp\":"     + (1623237859)              + ","
-                                    "\"temperature\":"   + (thighSensor.temperature) + ","
-                                    "\"active\":"        + (thighSensor.activity)    + ","
-                                    "\"position\":"      + (thighSensor.position)    + ","
-                                    "\"token\":"         + (apiKey)                  + "}";
+          // String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+          //                           "\"battery\":\""     + String (thighSensor.battery)     + "\","
+          //                           "\"timeStamp\":"     + (1623237859)              + ","
+          //                           "\"temperature\":"   + (thighSensor.temperature) + ","
+          //                           "\"active\":"        + (thighSensor.activity)    + ","
+          //                           "\"position\":"      + (thighSensor.position)    + ","
+          //                           "\"token\":"         + (apiKey)                  + "}";
 
           /* Raw request data */
-          // String httpRequestBody = "macAddress=f1:ca:e6:8a:e5:a7"
-          //                          "&battery=100"
-          //                          "&timeStamp=1623237859"
-          //                          "&temperature=0"
-          //                          "&active=0"
-          //                          "&position=0"
-          //                          "&token=117f08a0a9c5808e93a4c246ec0f2dab";                                    
+          String httpRequestBody = "macAddress=f1:ca:e6:8a:e5:a7"
+                                   "&battery=100"
+                                   "&timeStamp=1623237859"
+                                   "&temperature=0"
+                                   "&active=0"
+                                   "&position=0"
+                                   "&token=117f08a0a9c5808e93a4c246ec0f2dab";                                    
 
           // http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-          http.post (resource, "Content-Type: application/json", httpRequestBody);
+          http.post (resource, "Content-Type: application/x-www-form-urlencoded", httpRequestBody);
 
           SerialMon.println ();
           SerialMon.println (httpRequestBody);
