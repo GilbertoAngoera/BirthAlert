@@ -5,14 +5,12 @@
  * 
  *  References: 
  *    - Cloud Publishing: Rui Santos at https://RandomNerdTutorials.com/esp32-sim800l-publish-data-to-cloud/
- *                        "Permission is hereby granted, free of charge, to any person obtaining a copy
- *                         of this software and associated documentation files.  
- *                         The above copyright notice and this permission notice shall be included in all
- *                         copies or substantial portions of the Software."
  *    - Data Hosting:  https://nothans.com/thingspeak-tutorials/arduino/send-data-to-thingspeak-with-arduino
  */
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <ArduinoHttpClient.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -21,7 +19,6 @@
 #include <BLEScan.h>
 #include <WiFi.h>
 #include <BLEAdvertisedDevice.h>
-#include "ThingSpeak.h"
 #include <queue>
 #include <time.h>
 #include "router.h"
@@ -29,7 +26,7 @@
 using namespace std;
 
 /* If defined, allows terminal debug info */
-#define DEBUG
+// #define DEBUG
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
@@ -76,13 +73,11 @@ WiFiClient client;
 const char ssid[] = "Wifi_da_Vovo";       // WiFi SSID
 const char pass[] = "wifi.gilberto";      // Wifi Password
 
-/* ThingSpeak data hosting info */
-#define THIGH_CHANNEL_ID 1442488 // Channel number
-#define VULVA_CHANNEL_ID 1442490
-#define HYGRO_CHANNEL_ID 1442491
-#define THIGH_WRITE_APIKEY "QA97KP6M0CU4QGKG" // Channel write API Key
-#define VULVA_WRITE_APIKEY "H44JEIQGRH2EIF44"
-#define HYGRO_WRITE_APIKEY "AIBH07K1DN2OAWS0"
+// Server details
+const char server[] = "birthalert.angoeratech.com.br";
+const char resource[] = "/api/setSensorCoxa";
+const char apiKey[] = "117f08a0a9c5808e93a4c246ec0f2dab";
+const int  port = 80;
 
 /* Prototypes */
 void Sensor_Task(void *pvParameters);
@@ -113,12 +108,7 @@ void setup()
   pBLEScan->setActiveScan(false); //active scan uses more power, but get results faster
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99); // less or equal setInterval value
-
-  /**
-  *  Initializes ThingSpeak client
-  */
-  ThingSpeak.begin(client);
-
+  
   /* RTOS tasks creation to run independently. */
 
   xTaskCreatePinnedToCore (Sensor_Task, "Sensor Task" // A name just for humans
@@ -193,7 +183,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     {
       /* Check for known sensors by UUID */
       if (foundDevices.getDevice(i).haveServiceUUID() &&
-          foundDevices.getDevice(i).isAdvertisingService(simulationUUID))
+          foundDevices.getDevice(i).isAdvertisingService(sensorUUID))
       {
 #ifdef DEBUG
         Serial.printf("\n");
@@ -334,7 +324,6 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
  */
 void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 {
-  int ret = 0;
   thigh_sensor_data_t thighSensor;
   vulva_sensor_data_t vulvaSensor;
   hygrometer_sensor_data_t hygroSensor;
@@ -353,113 +342,168 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         delay(5000);     
       } 
       Serial.println("\nConnected.");
-    }
 
-#ifdef PUBLISH_RANDOM_DATA
-      // Set the data host fields with random values
-      int number1 = random (0, 99);
-      int number2 = random (0, 65535);
-      int number3 = random (0, 65535);
-      int number4 = random (0, 255);
-
-      ThingSpeak.setField (1, number1);
-      ThingSpeak.setField (2, number2);
-      ThingSpeak.setField (3, number3);
-      ThingSpeak.setField (4, number4);
-
-      /* Send fields to data host channel */
-      ret = ThingSpeak.writeFields (THIGH_CHANNEL_ID, THIGH_WRITE_APIKEY);
-      if (ret == 200)
-        Serial.println ("Channel update successful.");
+      /* Connect to Server */
+      SerialMon.print("Connecting to ");
+      SerialMon.print(server);
+      if (!client.connect(server, port)) {
+        SerialMon.println(" fail");
+      }
       else
-        Serial.println ("Problem updating channel. HTTP error code " + String(ret));
-
-#else
-      /* Publishes Vulva Sensor available data */
-      while (vulvaSensorQueue.size() != 0)
       {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+        /* Server connected */
+        SerialMon.println(" OK");
 
-        /* Get and Remove sensor sample from queue */
-        vulvaSensor = vulvaSensorQueue.front();
-        vulvaSensorQueue.pop();
+        /* Publishes Thigh Sensor available data */
+        // while (thighSensorQueue.size() != 0)
+        // {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
-        /* Exit critical session */
-        xSemaphoreGive (SensorQueueMutex);
+          /* Get and Remove sensor sample from queue */
+          thighSensor = thighSensorQueue.front();
+          thighSensorQueue.pop();
 
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, vulvaSensor.battery);
-        ThingSpeak.setField (2, vulvaSensor.dilation);
-        ThingSpeak.setField (3, vulvaSensor.gap);
+          /* Exit critical session */
+          xSemaphoreGive (SensorQueueMutex);
 
-        ThingSpeak.setStatus (String (vulvaSensorQueue.size(), 10));
+          /* Send HTTP Request */
+          SerialMon.println("Performing HTTP POST request...");
+  
+          /*
+          POST /transactions/sensorcoxa HTTP/1.1
+          Host: {{ENDPOINT}}
+          Content-Type: application/json
+          Content-Length: 160
+          {
+              "macAdrees": "12:09:78:ab:c6:7f"
+              "battery": "99"
+              "timeStamp": 1623237859,
+              "temperature": 36.15,
+              "position": 0,
+              "active": 13450,
+          }
+          */
 
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (VULVA_CHANNEL_ID, VULVA_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Vulva sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Vulva sensor channel. HTTP error code " + String(ret));
-      }
+          HttpClient http = HttpClient (client, server, port);
 
-      /* Publishes Hygrometer Sensor available data */
-      while (hygroSensorQueue.size() != 0)
-      {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+          /* JSON request data */
+          String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+                                    "\"battery\":\""     + String (thighSensor.battery)     + "\","
+                                    "\"timeStamp\":"     + String (1623237859)              + ","
+                                    "\"temperature\":"   + String (thighSensor.temperature) + ","
+                                    "\"active\":"        + String (thighSensor.activity)    + ","
+                                    "\"position\":"      + String (thighSensor.position)    + ","
+                                    "\"token\":"         + String (apiKey)                  + "}";
+
+          http.post (resource, "Content-Type: application/json", httpRequestBody);
+
+          SerialMon.println ();
+          SerialMon.println (httpRequestBody);
+          SerialMon.println ();
+
+          // read the status code and body of the response
+          int statusCode = http.responseStatusCode();
+          String response = http.responseBody();
+
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+          Serial.print("Response: ");
+          Serial.println(response);          
+
+          // /* JSON request data */
+          // String httpRequestData = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+          //                           "\"battery\":\""     + String (thighSensor.battery)     + "\","
+          //                           "\"timeStamp\":"     + String (1623237859)              + ","
+          //                           "\"temperature\":"   + String (thighSensor.temperature) + ","
+          //                           "\"active\":"        + String (thighSensor.activity)    + ","
+          //                           "\"position\":"      + String (thighSensor.position)    + ","
+          //                           "\"token\":"         + String (apiKey)                  + "}";
         
-        /* Get and Remove sensor sample from queue */
-        hygroSensor = hygroSensorQueue.front();
-        hygroSensorQueue.pop();
+          // Create JSON doc and write attributes
+          // const size_t capacity = JSON_OBJECT_SIZE(7);
+          // DynamicJsonDocument doc(capacity);
 
-        /* Exit critical session */
-        xSemaphoreGive (SensorQueueMutex);
+          // doc["macAddress"]  = String (thighSensor.header.addr);
+          // doc["battery"]     = String (thighSensor.battery) ;
+          // doc["timeStamp"]   = 1623237859;
+          // doc["temperature"] = thighSensor.temperature;
+          // doc["active"]      = thighSensor.activity;
+          // doc["position"]    = thighSensor.activity;
+          // doc["token"]       = apiKey;
 
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, hygroSensor.battery);
-        ThingSpeak.setField (2, hygroSensor.temperature);
-        ThingSpeak.setField (3, hygroSensor.humidity);
+          // client.print (String("POST ") + resource + " HTTP/1.1\r\n");
+          // client.print (String("Host: ") + server + "\r\n");
+          // client.println ("Content-Type: application/json");
+          // // client.println ("Connection: close");
+          // client.print ("Content-Length: ");
+          // // client.println (httpRequestData.length());
+          // // client.println (httpRequestData);
+          // client.println(measureJson(doc));
+          
+          // Prints doc to client
+          // serializeJson (doc, client);
 
-        ThingSpeak.setStatus (String (hygroSensorQueue.size(), 10));
+          // SerialMon.println (httpRequestData);
 
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (HYGRO_CHANNEL_ID, HYGRO_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Hygro sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Hygro sensor channel. HTTP error code " + String(ret));
-      }
+          /* Print response */
+          // unsigned long timeout = millis();
+          // while (client.connected() && millis() - timeout < 10000L)
+          // {
+          //   // Print available data (HTTP response from server)
+          //   while (client.available())
+          //   {
+          //     char c = client.read();
+          //     SerialMon.print(c);
+          //     timeout = millis();
+          //   }
+          // }      
+          // SerialMon.println();
+        // }
 
-      /* Publishes Thigh Sensor available data */
-      while (thighSensorQueue.size() != 0)
+        /* Publishes Vulva Sensor available data */
+        while (vulvaSensorQueue.size() != 0)
         {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+          /* Enter critical session to access the queue */
+          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
-        /* Get and Remove sensor sample from queue */
-        thighSensor = thighSensorQueue.front();
-        thighSensorQueue.pop();
+          /* Get and Remove sensor sample from queue */
+          vulvaSensor = vulvaSensorQueue.front();
+          vulvaSensorQueue.pop();
 
-        /* Exit critical session */
-        xSemaphoreGive (SensorQueueMutex);
+          /* Exit critical session */
+          xSemaphoreGive (SensorQueueMutex);
 
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, thighSensor.battery);
-        ThingSpeak.setField (2, thighSensor.temperature);
-        ThingSpeak.setField (3, thighSensor.activity);
-        ThingSpeak.setField (4, thighSensor.position);
+          /* Send HTTP Request */
+          
 
-        ThingSpeak.setStatus (String (thighSensorQueue.size(), 10));
+        }
 
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (THIGH_CHANNEL_ID, THIGH_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Thigh sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Thigh sensor channel. HTTP error code " + String(ret));
+        /* Publishes Hygrometer Sensor available data */
+        while (hygroSensorQueue.size() != 0)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+          
+          /* Get and Remove sensor sample from queue */
+          hygroSensor = hygroSensorQueue.front();
+          hygroSensorQueue.pop();
+
+          /* Exit critical session */
+          xSemaphoreGive (SensorQueueMutex);
+
+          /* Send HTTP Request */
+
+        }
+        // Close client and disconnect from Server
+        client.stop();
+        SerialMon.println(F("Server disconnected"));
       }
-#endif
+
+      /* Disconnect from APN */
+      modem.gprsDisconnect();
+      SerialMon.println (F("GPRS disconnected"));
+
       vTaskDelay (15000 / portTICK_PERIOD_MS);
   }
 }
