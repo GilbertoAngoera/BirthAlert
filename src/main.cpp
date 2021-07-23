@@ -342,6 +342,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         delay(5000);     
       } 
       Serial.println("\nConnected.");
+    }
 
       /* Connect to Server */
       SerialMon.print("Connecting to ");
@@ -499,11 +500,6 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         client.stop();
         SerialMon.println(F("Server disconnected"));
       }
-
-      /* Disconnect from APN */
-      modem.gprsDisconnect();
-      SerialMon.println (F("GPRS disconnected"));
-
       vTaskDelay (15000 / portTICK_PERIOD_MS);
   }
 }
