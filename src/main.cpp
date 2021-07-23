@@ -343,35 +343,23 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       } 
       Serial.println("\nConnected.");
     }
+    /* Publishes Thigh Sensor available data */
+    // while (thighSensorQueue.size() != 0)
+    // {
+    /* Enter critical session to access the queue */
+    xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-      /* Connect to Server */
-      SerialMon.print("Connecting to ");
-      SerialMon.print(server);
-      if (!client.connect(server, port)) {
-        SerialMon.println(" fail");
-      }
-      else
-      {
-        /* Server connected */
-        SerialMon.println(" OK");
+    /* Get and Remove sensor sample from queue */
+    thighSensor = thighSensorQueue.front();
+    thighSensorQueue.pop();
 
-        /* Publishes Thigh Sensor available data */
-        // while (thighSensorQueue.size() != 0)
-        // {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+    /* Exit critical session */
+    xSemaphoreGive(SensorQueueMutex);
 
-          /* Get and Remove sensor sample from queue */
-          thighSensor = thighSensorQueue.front();
-          thighSensorQueue.pop();
+    /* Send HTTP Request */
+    SerialMon.println("Performing HTTP POST request...");
 
-          /* Exit critical session */
-          xSemaphoreGive (SensorQueueMutex);
-
-          /* Send HTTP Request */
-          SerialMon.println("Performing HTTP POST request...");
-  
-          /*
+    /*
           POST /transactions/sensorcoxa HTTP/1.1
           Host: {{ENDPOINT}}
           Content-Type: application/json
@@ -386,121 +374,114 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           }
           */
 
-          HttpClient http = HttpClient (client, server, port);
+    HttpClient http = HttpClient(client, server, port);
 
-          /* JSON request data */
-          String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
-                                    "\"battery\":\""     + String (thighSensor.battery)     + "\","
-                                    "\"timeStamp\":"     + String (1623237859)              + ","
-                                    "\"temperature\":"   + String (thighSensor.temperature) + ","
-                                    "\"active\":"        + String (thighSensor.activity)    + ","
-                                    "\"position\":"      + String (thighSensor.position)    + ","
-                                    "\"token\":"         + String (apiKey)                  + "}";
+    /* JSON request data */
+    String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+                              "\"battery\":\""     + String (thighSensor.battery)     + "\","
+                              "\"timeStamp\":"     + String (1623237859)              + ","
+                              "\"temperature\":"   + String (thighSensor.temperature) + ","
+                              "\"active\":"        + String (thighSensor.activity)    + ","
+                              "\"position\":"      + String (thighSensor.position)    + ","
+                              "\"token\":"         + String (apiKey)                  + "}";
+  
+    http.post(resource, "Content-Type: application/json", httpRequestBody);
 
-          http.post (resource, "Content-Type: application/json", httpRequestBody);
+    SerialMon.println();
+    SerialMon.println(httpRequestBody);
+    SerialMon.println();
 
-          SerialMon.println ();
-          SerialMon.println (httpRequestBody);
-          SerialMon.println ();
+    // read the status code and body of the response
+    int statusCode = http.responseStatusCode();
+    String response = http.responseBody();
 
-          // read the status code and body of the response
-          int statusCode = http.responseStatusCode();
-          String response = http.responseBody();
+    Serial.print("Status code: ");
+    Serial.println(statusCode);
+    Serial.print("Response: ");
+    Serial.println(response);
 
-          Serial.print("Status code: ");
-          Serial.println(statusCode);
-          Serial.print("Response: ");
-          Serial.println(response);          
+    // /* JSON request data */
+    // String httpRequestData = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+    //                           "\"battery\":\""     + String (thighSensor.battery)     + "\","
+    //                           "\"timeStamp\":"     + String (1623237859)              + ","
+    //                           "\"temperature\":"   + String (thighSensor.temperature) + ","
+    //                           "\"active\":"        + String (thighSensor.activity)    + ","
+    //                           "\"position\":"      + String (thighSensor.position)    + ","
+    //                           "\"token\":"         + String (apiKey)                  + "}";
 
-          // /* JSON request data */
-          // String httpRequestData = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
-          //                           "\"battery\":\""     + String (thighSensor.battery)     + "\","
-          //                           "\"timeStamp\":"     + String (1623237859)              + ","
-          //                           "\"temperature\":"   + String (thighSensor.temperature) + ","
-          //                           "\"active\":"        + String (thighSensor.activity)    + ","
-          //                           "\"position\":"      + String (thighSensor.position)    + ","
-          //                           "\"token\":"         + String (apiKey)                  + "}";
-        
-          // Create JSON doc and write attributes
-          // const size_t capacity = JSON_OBJECT_SIZE(7);
-          // DynamicJsonDocument doc(capacity);
+    // Create JSON doc and write attributes
+    // const size_t capacity = JSON_OBJECT_SIZE(7);
+    // DynamicJsonDocument doc(capacity);
 
-          // doc["macAddress"]  = String (thighSensor.header.addr);
-          // doc["battery"]     = String (thighSensor.battery) ;
-          // doc["timeStamp"]   = 1623237859;
-          // doc["temperature"] = thighSensor.temperature;
-          // doc["active"]      = thighSensor.activity;
-          // doc["position"]    = thighSensor.activity;
-          // doc["token"]       = apiKey;
+    // doc["macAddress"]  = String (thighSensor.header.addr);
+    // doc["battery"]     = String (thighSensor.battery) ;
+    // doc["timeStamp"]   = 1623237859;
+    // doc["temperature"] = thighSensor.temperature;
+    // doc["active"]      = thighSensor.activity;
+    // doc["position"]    = thighSensor.activity;
+    // doc["token"]       = apiKey;
 
-          // client.print (String("POST ") + resource + " HTTP/1.1\r\n");
-          // client.print (String("Host: ") + server + "\r\n");
-          // client.println ("Content-Type: application/json");
-          // // client.println ("Connection: close");
-          // client.print ("Content-Length: ");
-          // // client.println (httpRequestData.length());
-          // // client.println (httpRequestData);
-          // client.println(measureJson(doc));
-          
-          // Prints doc to client
-          // serializeJson (doc, client);
+    // client.print (String("POST ") + resource + " HTTP/1.1\r\n");
+    // client.print (String("Host: ") + server + "\r\n");
+    // client.println ("Content-Type: application/json");
+    // // client.println ("Connection: close");
+    // client.print ("Content-Length: ");
+    // // client.println (httpRequestData.length());
+    // // client.println (httpRequestData);
+    // client.println(measureJson(doc));
 
-          // SerialMon.println (httpRequestData);
+    // Prints doc to client
+    // serializeJson (doc, client);
 
-          /* Print response */
-          // unsigned long timeout = millis();
-          // while (client.connected() && millis() - timeout < 10000L)
-          // {
-          //   // Print available data (HTTP response from server)
-          //   while (client.available())
-          //   {
-          //     char c = client.read();
-          //     SerialMon.print(c);
-          //     timeout = millis();
-          //   }
-          // }      
-          // SerialMon.println();
-        // }
+    // SerialMon.println (httpRequestData);
 
-        /* Publishes Vulva Sensor available data */
-        while (vulvaSensorQueue.size() != 0)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+    /* Print response */
+    // unsigned long timeout = millis();
+    // while (client.connected() && millis() - timeout < 10000L)
+    // {
+    //   // Print available data (HTTP response from server)
+    //   while (client.available())
+    //   {
+    //     char c = client.read();
+    //     SerialMon.print(c);
+    //     timeout = millis();
+    //   }
+    // }
+    // SerialMon.println();
+    // }
 
-          /* Get and Remove sensor sample from queue */
-          vulvaSensor = vulvaSensorQueue.front();
-          vulvaSensorQueue.pop();
+    /* Publishes Vulva Sensor available data */
+    while (vulvaSensorQueue.size() != 0)
+    {
+      /* Enter critical session to access the queue */
+      xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-          /* Exit critical session */
-          xSemaphoreGive (SensorQueueMutex);
+      /* Get and Remove sensor sample from queue */
+      vulvaSensor = vulvaSensorQueue.front();
+      vulvaSensorQueue.pop();
 
-          /* Send HTTP Request */
-          
+      /* Exit critical session */
+      xSemaphoreGive(SensorQueueMutex);
 
-        }
+      /* Send HTTP Request */
+    }
 
-        /* Publishes Hygrometer Sensor available data */
-        while (hygroSensorQueue.size() != 0)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
-          
-          /* Get and Remove sensor sample from queue */
-          hygroSensor = hygroSensorQueue.front();
-          hygroSensorQueue.pop();
+    /* Publishes Hygrometer Sensor available data */
+    while (hygroSensorQueue.size() != 0)
+    {
+      /* Enter critical session to access the queue */
+      xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-          /* Exit critical session */
-          xSemaphoreGive (SensorQueueMutex);
+      /* Get and Remove sensor sample from queue */
+      hygroSensor = hygroSensorQueue.front();
+      hygroSensorQueue.pop();
 
-          /* Send HTTP Request */
+      /* Exit critical session */
+      xSemaphoreGive(SensorQueueMutex);
 
-        }
-        // Close client and disconnect from Server
-        client.stop();
-        SerialMon.println(F("Server disconnected"));
-      }
-      vTaskDelay (15000 / portTICK_PERIOD_MS);
+      /* Send HTTP Request */
+    }
+    vTaskDelay(15000 / portTICK_PERIOD_MS);
   }
 }
 
