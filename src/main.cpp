@@ -357,7 +357,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
     xSemaphoreGive(SensorQueueMutex);
 
     /* Send HTTP Request */
-    SerialMon.println("Performing HTTP POST request...");
+    Serial.println("Performing HTTP POST request...");
 
     /*
           POST /transactions/sensorcoxa HTTP/1.1
@@ -387,9 +387,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   
     http.post(resource, "Content-Type: application/json", httpRequestBody);
 
-    SerialMon.println();
-    SerialMon.println(httpRequestBody);
-    SerialMon.println();
+    Serial.println();
+    Serial.println(httpRequestBody);
+    Serial.println();
 
     // read the status code and body of the response
     int statusCode = http.responseStatusCode();
