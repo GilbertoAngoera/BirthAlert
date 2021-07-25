@@ -377,15 +377,54 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
     HttpClient http = HttpClient(client, server, port);
 
     /* JSON request data */
-    String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
-                              "\"battery\":\""     + String (thighSensor.battery)     + "\","
-                              "\"timeStamp\":"     + String (1623237859)              + ","
-                              "\"temperature\":"   + String (thighSensor.temperature) + ","
-                              "\"active\":"        + String (thighSensor.activity)    + ","
-                              "\"position\":"      + String (thighSensor.position)    + ","
-                              "\"token\":"         + String (apiKey)                  + "}";
+    // String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
+    //                           "\"battery\":\""     + String (thighSensor.battery)     + "\","
+    //                           "\"timeStamp\":"     + String (1623237859)              + ","
+    //                           "\"temperature\":"   + String (thighSensor.temperature) + ","
+    //                           "\"active\":"        + String (thighSensor.activity)    + ","
+    //                           "\"position\":"      + String (thighSensor.position)    + ","
+    //                           "\"token\":"         + String (apiKey)                  + "}";
+
+    /* form-data request */
+    // String httpRequestBody =  "macAddress="   + String (thighSensor.header.addr) +
+    //                           "&battery="     + String (thighSensor.battery)     +
+    //                           "&timeStamp="   + String (1623237859)              +
+    //                           "&temperature=" + String (thighSensor.temperature) +
+    //                           "&active="      + String (thighSensor.activity)    +
+    //                           "&position="    + String (thighSensor.position)    +
+    //                           "&token="       + String (apiKey)                  +
+    //                           "";    
   
-    http.post(resource, "Content-Type: application/json", httpRequestBody);
+    // String httpRequestBody = "macAddress=12:09:78:ab:c6:7f&battery=99&timeStamp=1623237859&temperature=36.15&active=13450&position=0&token=117f08a0a9c5808e93a4c246ec0f2dab";
+    String httpRequestBody = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
+"Content-Disposition: form-data; name=\"macAddress\""
+
+"12:09:78:ab:34:25"
+"----WebKitFormBoundary7MA4YWxkTrZu0gW"
+"Content-Disposition: form-data; name=\"battery\""
+
+"88"
+"----WebKitFormBoundary7MA4YWxkTrZu0gW"
+"Content-Disposition: form-data; name=\"timeStamp\""
+
+"1623237859"
+"----WebKitFormBoundary7MA4YWxkTrZu0gW"
+"Content-Disposition: form-data; name=\"dilation\""
+
+"13.1"
+"----WebKitFormBoundary7MA4YWxkTrZu0gW"
+"Content-Disposition: form-data; name=\"gap\""
+
+"10.1"
+"----WebKitFormBoundary7MA4YWxkTrZu0gW"
+"Content-Disposition: form-data; name=\"token\""
+
+"117f08a0a9c5808e93a4c246ec0f2dab"
+"----WebKitFormBoundary7MA4YWxkTrZu0gW";
+
+    http.sendHeader("Cookie: cw_session=svmupgqhbqa0iit7kkgjdkk0n5o7b8s1");
+    http.sendHeader("Content-Length: " + httpRequestBody.length());
+    http.post(resource, "Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", httpRequestBody);
 
     Serial.println();
     Serial.println(httpRequestBody);
