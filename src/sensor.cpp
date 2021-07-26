@@ -10,7 +10,7 @@
 #include <Arduino.h>
 #include <stdlib.h>
 #include <string.h>
-#include <router.h>
+#include <sensor.h>
 
 // ThighSensor::ThighSensor(/* args */)
 // {
