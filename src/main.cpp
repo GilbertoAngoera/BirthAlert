@@ -490,16 +490,28 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           //                           "\"token\":"         + (apiKey)                  + "}";
 
           /* Raw request data */
-          String httpRequestBody = "macAddress=f1:ca:e6:8a:e5:a7"
-                                   "&battery=100"
-                                   "&timeStamp=1623237859"
-                                   "&temperature=0"
-                                   "&active=0"
-                                   "&position=0"
-                                   "&token=117f08a0a9c5808e93a4c246ec0f2dab";                                    
+          // String httpRequestBody = "macAddress=f1:ca:e6:8a:e5:a7"
+          //                          "&battery=100"
+          //                          "&timeStamp=1623237859"
+          //                          "&temperature=0"
+          //                          "&active=0"
+          //                          "&position=0"
+          //                          "&token=117f08a0a9c5808e93a4c246ec0f2dab";     
 
-          // http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-          http.post (resource, "Content-Type: application/x-www-form-urlencoded", httpRequestBody);
+          String boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW\n";
+          String content = "Content-Disposition: form-data\n";
+
+          String httpRequestBody = boundary + content + "name=\"macAddress\"\n\rf1:ca:e6:8a:e5:a7\n" +
+                                   boundary + content + "name=\"battery\"\n\r100\n" +
+                                   boundary + content + "name=\"timeStamp\"\n\r1623237859\n" +
+                                   boundary + content + "name=\"temperature\"\n\r0\n" +
+                                   boundary + content + "name=\"active\"\n\r0\n" +
+                                   boundary + content + "name=\"position\"\n\r0\n" +
+                                   boundary + content + "name=\"token\"\n\r117f08a0a9c5808e93a4c246ec0f2dab\n" +
+                                   boundary;                                      
+
+          http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+          http.post (resource, "Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", httpRequestBody);
 
           SerialMon.println ();
           SerialMon.println (httpRequestBody);
