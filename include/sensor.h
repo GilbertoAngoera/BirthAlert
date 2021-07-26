@@ -1,5 +1,5 @@
 /**
- * router.h
+ * sensor.h
  *
  *	Birth Alert Router's application
  *
@@ -81,7 +81,7 @@ typedef struct hygrometer_sensor_data {
 
 /* Public Prototypes */
 
-class Sensor
+class SensorData
 {
 private:
     /* Sensor attributes */
@@ -89,16 +89,10 @@ private:
     String address;
     uint8_t battery;
 public:
-    Sensor(/* args */);
-    ~Sensor();
+    SensorData(/* args */);
+    ~SensorData();
     
     /* Sensor methods */
-	void setName(String name);
-	void setAddress(String addr);
-    void setBattery(uint8_t level);
-	String getName();
-	String getAddress();
-    uint8_t getBattery();
 };
 
 class SensorSample
@@ -111,11 +105,9 @@ public:
     ~SensorSample();
     
     /* Sensor Sample methods */
-	void setTimeStamp(String timeStamp);
-    void getTimeStamp();
 };
 
-class ThighSensorData : public Sensor , public SensorSample
+class ThighSensorData : public SensorData , public SensorSample
 {
 private:
     /* Thigh Sensor Data attributes */
@@ -127,15 +119,9 @@ public:
     ~ThighSensorData();
 
     /* Thigh Sensor Data methods */
-    void setTemperature(uint16_t temperature);
-    void setActivity(uint16_t activity);
-    void setPosition(uint8_t position);
-	uint16_t getTemperature();
-    uint16_t getActivity();
-    uint8_t getPosition();
 };
 
-class VulvaSensorData : public Sensor, public SensorSample
+class VulvaSensorData : public SensorData, public SensorSample
 {
 private:
     /* Vulva Sensor Data attributes */
@@ -147,13 +133,9 @@ public:
     ~VulvaSensorData();
 
     /* Vulva Sensor Data methods */
-    void setDilation(uint16_t dilation);
-    void setGap(uint16_t gap);
-    uint16_t getDilation();
-    uint16_t getGap();
 };
 
-class HygroSensorData : public Sensor, public SensorSample
+class HygroSensorData : public SensorData, public SensorSample
 {
 private:
     /* Hygro Sensor Data attributes */
@@ -165,10 +147,6 @@ public:
     ~HygroSensorData();
 
     /* Hygro Sensor Data methods */
-    void setTemperature(uint16_t temperature);
-    void setHumidity(uint16_t humidity);
-    uint16_t getTemperature();
-    uint16_t getHumidity();
 };
 
 class ThighSensor : public ThighSensorData
@@ -181,6 +159,21 @@ public:
     ~ThighSensor();
     
     /* Thigh Sensor methods */
+    void setName(String name);
+	void setAddress(String addr);
+    void setBattery(uint8_t level);
+	String getName();
+	String getAddress();
+    uint8_t getBattery();
+
+    void setTemperature(uint16_t temperature);
+    void setActivity(uint16_t activity);
+    void setPosition(uint8_t position);
+	uint16_t getTemperature();
+    uint16_t getActivity();
+    uint8_t getPosition();
+
+    uint8_t getBattery();
 	void pushToQueue(ThighSensorData sample);
 	void removeFromQueue();
     ThighSensorData getFromQueue();
@@ -189,13 +182,25 @@ public:
 class VulvaSensor
 {
 private:
-    /* Thigh Sensor attributes */
+    /* Vulva Sensor attributes */
     static std::queue<VulvaSensorData> queue;
 public:
     VulvaSensor(/* args */);
     ~VulvaSensor();
     
-    /* Thigh Sensor methods */
+    /* Vulva Sensor methods */
+    void setName(String name);
+	void setAddress(String addr);
+    void setBattery(uint8_t level);
+	String getName();
+	String getAddress();
+    uint8_t getBattery();
+
+    void setDilation(uint16_t dilation);
+    void setGap(uint16_t gap);
+    uint16_t getDilation();
+    uint16_t getGap();
+
 	void pushToQueue(VulvaSensorData sample);
 	void removeFromQueue();
     VulvaSensorData getFromQueue();
@@ -204,13 +209,25 @@ public:
 class HygroSensor : public HygroSensorData
 {
 private:
-    /* Thigh Sensor attributes */
+    /* Hygro Sensor attributes */
     static std::queue<HygroSensorData> queue;
 public:
     HygroSensor(/* args */);
     ~HygroSensor();
     
-    /* Thigh Sensor methods */
+    /* Hygro Sensor methods */
+    void setName(String name);
+	void setAddress(String addr);
+    void setBattery(uint8_t level);
+	String getName();
+	String getAddress();
+    uint8_t getBattery();
+
+    void setTemperature(uint16_t temperature);
+    void setHumidity(uint16_t humidity);
+    uint16_t getTemperature();
+    uint16_t getHumidity();    
+
 	void pushToQueue(HygroSensorData sample);
 	void removeFromQueue();
     HygroSensorData getFromQueue();
