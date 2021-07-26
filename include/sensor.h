@@ -83,7 +83,7 @@ typedef struct hygrometer_sensor_data {
 
 class SensorData
 {
-private:
+protected:
     /* Sensor attributes */
     String name;
     String address;
@@ -97,7 +97,7 @@ public:
 
 class SensorSample
 {
-private:
+protected:
     /* Sensor Sample attributes */
     String timeStamp;
 public:
@@ -109,7 +109,7 @@ public:
 
 class ThighSensorData : public SensorData , public SensorSample
 {
-private:
+protected:
     /* Thigh Sensor Data attributes */
     uint16_t temperature;
 	uint16_t activity;
@@ -123,7 +123,7 @@ public:
 
 class VulvaSensorData : public SensorData, public SensorSample
 {
-private:
+protected:
     /* Vulva Sensor Data attributes */
 	uint16_t dilation;
 	uint16_t gap;
@@ -137,7 +137,7 @@ public:
 
 class HygroSensorData : public SensorData, public SensorSample
 {
-private:
+protected:
     /* Hygro Sensor Data attributes */
     uint16_t temperature;
 	uint16_t humidity;
@@ -151,7 +151,7 @@ public:
 
 class ThighSensor : public ThighSensorData
 {
-private:
+protected:
     /* Thigh Sensor attributes */
     static std::queue<ThighSensorData> queue;
 public:
@@ -159,29 +159,31 @@ public:
     ~ThighSensor();
     
     /* Thigh Sensor methods */
-    void setName(String name);
-	void setAddress(String addr);
-    void setBattery(uint8_t level);
+    void setName(String str);
+	void setAddress(String str);
+    void setBattery(uint8_t val);
 	String getName();
 	String getAddress();
     uint8_t getBattery();
 
-    void setTemperature(uint16_t temperature);
-    void setActivity(uint16_t activity);
-    void setPosition(uint8_t position);
+    void setTemperature(uint16_t val);
+    void setActivity(uint16_t val);
+    void setPosition(uint8_t val);
 	uint16_t getTemperature();
     uint16_t getActivity();
     uint8_t getPosition();
 
-    uint8_t getBattery();
-	void pushToQueue(ThighSensorData sample);
+    void setTimeStamp(String str);
+    String getTimeStamp();
+
+	void pushToQueue(ThighSensorData data);
 	void removeFromQueue();
     ThighSensorData getFromQueue();
 };
 
 class VulvaSensor
 {
-private:
+protected:
     /* Vulva Sensor attributes */
     static std::queue<VulvaSensorData> queue;
 public:
@@ -189,26 +191,29 @@ public:
     ~VulvaSensor();
     
     /* Vulva Sensor methods */
-    void setName(String name);
-	void setAddress(String addr);
-    void setBattery(uint8_t level);
+    void setName(String str);
+	void setAddress(String str);
+    void setBattery(uint8_t val);
 	String getName();
 	String getAddress();
     uint8_t getBattery();
 
-    void setDilation(uint16_t dilation);
-    void setGap(uint16_t gap);
+    void setDilation(uint16_t val);
+    void setGap(uint16_t val);
     uint16_t getDilation();
     uint16_t getGap();
 
-	void pushToQueue(VulvaSensorData sample);
+    void setTimeStamp(String str);
+    String getTimeStamp();
+
+	void pushToQueue(VulvaSensorData data);
 	void removeFromQueue();
     VulvaSensorData getFromQueue();
 };
 
 class HygroSensor : public HygroSensorData
 {
-private:
+protected:
     /* Hygro Sensor attributes */
     static std::queue<HygroSensorData> queue;
 public:
@@ -216,19 +221,22 @@ public:
     ~HygroSensor();
     
     /* Hygro Sensor methods */
-    void setName(String name);
-	void setAddress(String addr);
-    void setBattery(uint8_t level);
+    void setName(String str);
+	void setAddress(String str);
+    void setBattery(uint8_t val);
 	String getName();
 	String getAddress();
     uint8_t getBattery();
 
-    void setTemperature(uint16_t temperature);
-    void setHumidity(uint16_t humidity);
+    void setTemperature(uint16_t val);
+    void setHumidity(uint16_t val);
     uint16_t getTemperature();
     uint16_t getHumidity();    
 
-	void pushToQueue(HygroSensorData sample);
+    void setTimeStamp(String str);
+    String getTimeStamp();
+
+	void pushToQueue(HygroSensorData data);
 	void removeFromQueue();
     HygroSensorData getFromQueue();
 };

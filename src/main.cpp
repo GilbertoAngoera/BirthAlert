@@ -25,17 +25,12 @@
 using namespace std;
 
 /* If defined, allows terminal debug info */
-// #define DEBUG
+#define DEBUG
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
 #define BLINK_GPIO GPIO_NUM_13
-
-/* Global queues to store sensor samples */
-queue<thigh_sensor_data_t> thighSensorQueue;
-queue<vulva_sensor_data_t> vulvaSensorQueue;
-queue<hygrometer_sensor_data_t> hygroSensorQueue;
 
 /* Mutex to protect the shared queues access */
 SemaphoreHandle_t SensorQueueMutex;
@@ -254,9 +249,9 @@ void setup()
  */
 void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 {
-  thigh_sensor_data_t thighSensor;
-  vulva_sensor_data_t vulvaSensor;
-  hygrometer_sensor_data_t hygroSensor;
+  ThighSensor thighSensor;
+  VulvaSensor vulvaSensor;
+  HygroSensor hygroSensor;
   int type = -1;
   int len = 0;
   char data[32];
@@ -315,28 +310,28 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
           switch (type)
           {
           case THIGH_SENSOR_TYPE:
-            strcpy(thighSensor.header.name, foundDevices.getDevice(i).getName().c_str());
-            strcpy(thighSensor.header.addr, foundDevices.getDevice(i).getAddress().toString().c_str());
-            strcpy(thighSensor.header.time, formatted_date);
-            thighSensor.battery = data[THIGH_BATTERY_POS];
-            thighSensor.activity = ((data[THIGH_ACTIVITY_POS]) << 8) + data[THIGH_ACTIVITY_POS + 1];
-            thighSensor.temperature = ((data[THIGH_TEMPERATURE_POS]) << 8) + data[THIGH_TEMPERATURE_POS + 1];
-            thighSensor.position = data[THIGH_POSITION_POS];
+            thighSensor.setName (foundDevices.getDevice(i).getName().c_str());
+            thighSensor.setAddress (foundDevices.getDevice(i).getAddress().toString().c_str());
+            thighSensor.setTimeStamp (formatted_date);
+            thighSensor.setBattery(data[THIGH_BATTERY_POS]);
+            thighSensor.setActivity(((data[THIGH_ACTIVITY_POS]) << 8) + data[THIGH_ACTIVITY_POS + 1]);
+            thighSensor.setTemperature(((data[THIGH_TEMPERATURE_POS]) << 8) + data[THIGH_TEMPERATURE_POS + 1]);
+            thighSensor.setPosition(data[THIGH_POSITION_POS]);
 
             /* Enter critical session to access the queue */
             xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
             /* Stores sensor sample on queue */
-            thighSensorQueue.push (thighSensor);
+            thighSensor.pushToQueue(thighSensor);
 #ifdef DEBUG
             /* Print latest sample values */
-            Serial.printf("Sensor Name: %s\n", thighSensorQueue.back().header.name);
-            Serial.printf("Sensor Addr: %s\n", thighSensorQueue.back().header.addr);
-            Serial.printf("Sensor Time: %s\n", thighSensorQueue.back().header.time);
-            Serial.printf("Sensor Batt: %d\n", thighSensorQueue.back().battery);
-            Serial.printf("Sensor Act.: %d\n", thighSensorQueue.back().activity);
-            Serial.printf("Sensor Temp: %d\n", thighSensorQueue.back().temperature);
-            Serial.printf("Sensor Pos : %d\n", thighSensorQueue.back().position);
+            Serial.printf("Sensor Name: %s\n", thighSensor.getFromQueue().name);
+            Serial.printf("Sensor Addr: %s\n", thighSensor.getFromQueue().address);
+            Serial.printf("Sensor Time: %s\n", thighSensor.getFromQueue().timeStamp);
+            Serial.printf("Sensor Batt: %d\n", thighSensor.getFromQueue().battery);
+            Serial.printf("Sensor Act.: %d\n", thighSensor.getFromQueue().activity);
+            Serial.printf("Sensor Temp: %d\n", thighSensor.getFromQueue().temperature);
+            Serial.printf("Sensor Pos : %d\n", thighSensor.getFromQueue().position);
 #endif
             /* Exit critical session */
             xSemaphoreGive (SensorQueueMutex);
