@@ -125,6 +125,7 @@ void Sensor_Task(void *pvParameters);
 void Cloud_Task(void *pvParameters);
 void UI_Task(void *pvParameters);
 
+
 bool setPowerBoostKeepOn(int en)
 {
   I2CPower.beginTransmission(IP5306_ADDR);
@@ -138,6 +139,18 @@ bool setPowerBoostKeepOn(int en)
     I2CPower.write(0x35); // 0x37 is default reg value
   }
   return I2CPower.endTransmission() == 0;
+}
+
+// Function that gets current epoch time
+unsigned long getTime()
+{
+  time_t now;
+  struct tm timeinfo;
+
+  time(&now);
+  localtime_r(&now, &timeinfo);
+
+  return now;
 }
 
 void setup()
@@ -468,7 +481,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* JSON request data */
           String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
                                     "\"battery\":\""     + String (thighSensor.battery)     + "\","
-                                    "\"timeStamp\":"     + (1623237859)              + ","
+                                    "\"timeStamp\":"     + String (getTime())        + ","
                                     "\"temperature\":"   + (thighSensor.temperature) + ","
                                     "\"active\":"        + (thighSensor.activity)    + ","
                                     "\"position\":"      + (thighSensor.position)    + ","
