@@ -25,7 +25,7 @@
 using namespace std;
 
 /* If defined, allows terminal debug info */
-// #define DEBUG
+#define DEBUG
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
@@ -273,6 +273,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
   int type = -1;
   int len = 0;
   char data[32];
+  string dado;
   char formatted_date[64];
   time_t current_time;
   tm date;
@@ -328,9 +329,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
           switch (type)
           {
           case THIGH_SENSOR_TYPE:
-            strcpy(thighSensor.header.name, foundDevices.getDevice(i).getName().c_str());
-            strcpy(thighSensor.header.addr, foundDevices.getDevice(i).getAddress().toString().c_str());
-            strcpy(thighSensor.header.time, formatted_date);
+            thighSensor.header.name = foundDevices.getDevice(i).getName();
+            thighSensor.header.addr = foundDevices.getDevice(i).getAddress().toString();
+            thighSensor.header.time = getTime();
             thighSensor.battery = data[THIGH_BATTERY_POS];
             thighSensor.activity = ((data[THIGH_ACTIVITY_POS]) << 8) + data[THIGH_ACTIVITY_POS + 1];
             thighSensor.temperature = ((data[THIGH_TEMPERATURE_POS]) << 8) + data[THIGH_TEMPERATURE_POS + 1];
@@ -343,9 +344,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             thighSensorQueue.push (thighSensor);
 #ifdef DEBUG
             /* Print latest sample values */
-            Serial.printf("Sensor Name: %s\n", thighSensorQueue.back().header.name);
-            Serial.printf("Sensor Addr: %s\n", thighSensorQueue.back().header.addr);
-            Serial.printf("Sensor Time: %s\n", thighSensorQueue.back().header.time);
+            Serial.printf("Sensor Name: %s\n", thighSensorQueue.back().header.name.c_str());
+            Serial.printf("Sensor Addr: %s\n", thighSensorQueue.back().header.addr.c_str());
+            Serial.printf("Sensor Time: %d\n", (int) thighSensorQueue.back().header.time);
             Serial.printf("Sensor Batt: %d\n", thighSensorQueue.back().battery);
             Serial.printf("Sensor Act.: %d\n", thighSensorQueue.back().activity);
             Serial.printf("Sensor Temp: %d\n", thighSensorQueue.back().temperature);
@@ -357,9 +358,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             break;
 
           case VULVA_SENSOR_TYPE:
-            strcpy(vulvaSensor.header.name, foundDevices.getDevice(i).getName().c_str());
-            strcpy(vulvaSensor.header.addr, foundDevices.getDevice(i).getAddress().toString().c_str());
-            strcpy(vulvaSensor.header.time, formatted_date);
+            vulvaSensor.header.name = foundDevices.getDevice(i).getName();
+            vulvaSensor.header.addr = foundDevices.getDevice(i).getAddress().toString();
+            vulvaSensor.header.time = getTime();
             vulvaSensor.battery = data[VULVA_BATTERY_POS];
             vulvaSensor.dilation = ((data[VULVA_DILATION_POS]) << 8) + data[VULVA_DILATION_POS + 1];
             vulvaSensor.gap = ((data[VULVA_GAP_POS]) << 8) + data[VULVA_GAP_POS + 1];
@@ -371,9 +372,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             vulvaSensorQueue.push (vulvaSensor);
 #ifdef DEBUG
             /* Print latest sample values */
-            Serial.printf("Sensor Name: %s\n", vulvaSensorQueue.back().header.name);
-            Serial.printf("Sensor Addr: %s\n", vulvaSensorQueue.back().header.addr);
-            Serial.printf("Sensor Time: %s\n", vulvaSensorQueue.back().header.time);
+            Serial.printf("Sensor Name: %s\n", vulvaSensorQueue.back().header.name.c_str());
+            Serial.printf("Sensor Addr: %s\n", vulvaSensorQueue.back().header.addr.c_str());
+            Serial.printf("Sensor Time: %d\n", (int) vulvaSensorQueue.back().header.time);
             Serial.printf("Sensor Batt: %d\n", vulvaSensorQueue.back().battery);
             Serial.printf("Sensor Dil : %d\n", vulvaSensorQueue.back().dilation);
             Serial.printf("Sensor Gap : %d\n", vulvaSensorQueue.back().gap);
@@ -384,9 +385,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             break;
 
           case HYGRO_SENSOR_TYPE:
-            strcpy(hygroSensor.header.name, foundDevices.getDevice(i).getName().c_str());
-            strcpy(hygroSensor.header.addr, foundDevices.getDevice(i).getAddress().toString().c_str());
-            strcpy(hygroSensor.header.time, formatted_date);
+            hygroSensor.header.name = foundDevices.getDevice(i).getName();
+            hygroSensor.header.addr = foundDevices.getDevice(i).getAddress().toString();
+            hygroSensor.header.time = getTime();
             hygroSensor.battery = data[HYGRO_BATTERY_POS];
             hygroSensor.humidity = ((data[HYGRO_HUMIDITY_POS]) << 8) + data[HYGRO_HUMIDITY_POS + 1];
             hygroSensor.temperature = ((data[HYGRO_TEMPERATURE_POS]) << 8) + data[HYGRO_TEMPERATURE_POS + 1];
@@ -398,9 +399,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             hygroSensorQueue.push (hygroSensor);
 #ifdef DEBUG
             /* Print latest sample values */
-            Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name);
-            Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr);
-            Serial.printf("Sensor Time: %s\n", hygroSensorQueue.back().header.time);
+            Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name.c_str());
+            Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
+            Serial.printf("Sensor Time: %d\n", (int) hygroSensorQueue.back().header.time);
             Serial.printf("Sensor Batt: %d\n", hygroSensorQueue.back().battery);
             Serial.printf("Sensor Hum.: %d\n", hygroSensorQueue.back().humidity);
             Serial.printf("Sensor Temp: %d\n", hygroSensorQueue.back().temperature);
@@ -479,13 +480,13 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           HttpClient http = HttpClient (client, server, port);
 
           /* JSON request data */
-          String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr) + "\","
-                                    "\"battery\":\""     + String (thighSensor.battery)     + "\","
-                                    "\"timeStamp\":"     + String (getTime())        + ","
-                                    "\"temperature\":"   + (thighSensor.temperature) + ","
-                                    "\"active\":"        + (thighSensor.activity)    + ","
-                                    "\"position\":"      + (thighSensor.position)    + ","
-                                    "\"token\":\""       + (apiKey)                  + "\"}";
+          String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
+                                    "\"battery\":\""     + String (thighSensor.battery)             + "\","
+                                    "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
+                                    "\"temperature\":"   + String (thighSensor.temperature)         + ","
+                                    "\"active\":"        + String (thighSensor.activity)            + ","
+                                    "\"position\":"      + String (thighSensor.position)            + ","
+                                    "\"token\":\""       + String (apiKey)                          + "\"}";
 
           http.sendHeader ("Content-Length", String(httpRequestBody.length()));
           http.post (resource, "Content-Type: application/json", httpRequestBody);
