@@ -8,6 +8,7 @@
  *    - Data Hosting:  https://nothans.com/thingspeak-tutorials/arduino/send-data-to-thingspeak-with-arduino
  */
 
+
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ArduinoHttpClient.h>
@@ -19,6 +20,7 @@
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 #include <queue>
+#include <sys/time.h>
 #include <time.h>
 #include "router.h"
 
@@ -28,6 +30,12 @@ using namespace std;
 #define DEBUG
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
+
+#define AT_CMD_TIMEOUT  1200
+#define AT_TIME_LEN     17
+#define AT_TIME_BEGIN   10
+#define AT_TIME_END     AT_TIME_BEGIN + AT_TIME_LEN
+
 
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
 #define BLINK_GPIO GPIO_NUM_13
@@ -67,7 +75,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
  *  SIM800L definitions
  */
 
-// Your GPRS credentials (leave empty, if not needed)
+// Your GPRS credentials
 const char apn[] = "zap.vivo.com.br"; // APN
 const char gprsUser[] = "vivo";       // GPRS User
 const char gprsPass[] = "vivo";       // GPRS Password
@@ -78,6 +86,14 @@ const char server[] = "birthalert.angoeratech.com.br";
 const char resource[] = "/api/setSensorCoxa";
 const char apiKey[] = "117f08a0a9c5808e93a4c246ec0f2dab";
 const int  port = 80;
+
+// NTP server info for time synch
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = -3 * 3600;  // Brazilian time offset (GMT-3)
+const int   daylightOffset_sec = 3600;
+
+struct tm *timeinfo;
+time_t now;
 
 // TTGO T-Call pins
 #define MODEM_RST 5
@@ -144,13 +160,95 @@ bool setPowerBoostKeepOn(int en)
 // Function that gets current epoch time
 unsigned long getTime()
 {
-  time_t now;
-  struct tm timeinfo;
+  // time_t now;
+  // struct tm timeinfo;
 
   time(&now);
-  localtime_r(&now, &timeinfo);
+  timeinfo = localtime(&now);
 
   return now;
+}
+
+// unsigned long getTime()
+// {
+//   time_t now;
+//   struct tm timeinfo;
+//   if (!getLocalTime(&timeinfo)) {
+//     //Serial.println("Failed to obtain time");
+//     return(0);
+//   }
+//   time(&now);
+//   return now;
+// }
+
+/**
+ * Get timeStamp from SIM800L
+ * @note Don't call this from tasks (threads).
+ */
+String getTimeFromGSM ()
+{
+  String response;
+  
+  /* Send AT command (Clock)*/
+  SerialAT.println ("AT+CCLK?");
+  delay(150);
+
+  /* Wait for response */
+  for (uint16_t i = 0; i < AT_CMD_TIMEOUT; i++)
+  {
+    delay(25);
+    if (SerialAT.available())
+    {
+      delay(50);
+      response = SerialAT.readString();
+      
+      /* Get clean date and time string (from +CCLK: "21/07/30,14:17:39-12") */
+      return response.substring (AT_TIME_BEGIN, AT_TIME_END);
+    }
+  }
+  return "FAIL";  
+}
+
+/**
+ * Set local time from GSM network
+ */
+void setLocalTime (String dateTime)
+{
+  tm timeStruct;
+  time_t time;
+  timeval timeVal = {0, 0};       // {sec, usec}
+
+  Serial.println (dateTime);
+
+  timeStruct.tm_year = dateTime.substring(0, 2).toInt() + 100;
+  timeStruct.tm_mon  = dateTime.substring(3, 5).toInt() - 1;
+  timeStruct.tm_mday = dateTime.substring(6, 8).toInt();
+  timeStruct.tm_hour = dateTime.substring(9, 11).toInt() + 3;   // Remove GMT-3 offset to transform in UTC time (required for 'settimeofday()')
+  timeStruct.tm_min  = dateTime.substring(12, 14).toInt();
+  timeStruct.tm_sec  = dateTime.substring(15, 17).toInt();
+
+  Serial.println (timeStruct.tm_year);
+  Serial.println (timeStruct.tm_mon);
+  Serial.println (timeStruct.tm_mday);
+  Serial.println (timeStruct.tm_hour);
+  Serial.println (timeStruct.tm_min);
+  Serial.println (timeStruct.tm_sec);
+  
+  Serial.println (asctime(&timeStruct));
+
+  /* Get UNIX time */
+  time = mktime (&timeStruct);
+  Serial.println (time);  
+  timeVal.tv_sec = time;
+
+  // timeZone.tz_minuteswest = 180;
+  // timeZone.tz_dsttime = 0;
+
+  Serial.println (time);
+
+  /* Set time */
+  settimeofday(&timeVal, NULL);
+  // localtime (&time);
 }
 
 void setup()
@@ -214,6 +312,27 @@ void setup()
   if (strlen(simPIN) && modem.getSimStatus() != 3)
   {
     modem.simUnlock(simPIN);
+  }
+
+  /* Connect GSM Modem to APN for time synchronization */
+  SerialMon.print ("Connecting to Time Server: ");
+  SerialMon.print (apn);
+  if (!modem.gprsConnect (apn, gprsUser, gprsPass))
+  {
+    SerialMon.println (" fail");
+  }
+  else
+  {
+    /* APN connected */
+    SerialMon.println (" OK");
+
+    /* Get time from network */
+    String time = getTimeFromGSM ();
+    setLocalTime (time);
+
+    /* Disconnect from Time Server */
+    modem.gprsDisconnect();
+    SerialMon.println (F("GPRS disconnected"));
   }
 
   /* RTOS tasks creation to run independently. */
@@ -426,7 +545,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 
 /**
  *  @brief    Task to publish sensor data to cloud
- *  @details  Sends all available samples in sensor queues to cloud once every X seconds.
+ *  @details  Sends all available samples in sensor queues to cloud once every 15 seconds.
  * 
  *  @param [in] pvParameters  Not used.
  */
