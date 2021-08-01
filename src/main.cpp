@@ -577,9 +577,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Enter critical session to access the queue */
           xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
-          /* Get and Remove sensor sample from queue */
+          /* Get sensor sample from queue (but don't remove it) */
           thighSensor = thighSensorQueue.front();
-          thighSensorQueue.pop();
 
           /* Exit critical session */
           xSemaphoreGive (SensorQueueMutex);
@@ -605,14 +604,27 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           SerialMon.println (httpRequestBody);
           SerialMon.println ();
 
-          // read the status code and body of the response
+          // Read the status code and body of the response
           int statusCode = http.responseStatusCode();
           String response = http.responseBody();
 
           Serial.print("Status code: ");
           Serial.println(statusCode);
           Serial.print("Response: ");
-          Serial.println(response);          
+          Serial.println(response);
+
+          /* If transaction is successful, remove from queue */
+          if (statusCode == 201)
+          {
+            /* Enter critical session to access the queue */
+            xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+
+            /* Remove sensor sample from queue */
+            thighSensorQueue.pop();
+
+            /* Exit critical session */
+            xSemaphoreGive (SensorQueueMutex);
+          }          
         }
 
         /* Publishes Vulva Sensor available data */
