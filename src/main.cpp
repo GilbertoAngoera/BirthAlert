@@ -572,8 +572,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         SerialMon.println(" OK");
 
         /* Publishes Thigh Sensor available data */
-        // while (thighSensorQueue.size() != 0)
-        // {
+        while (thighSensorQueue.size() != 0)
+        {
           /* Enter critical session to access the queue */
           xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
@@ -613,7 +613,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           Serial.println(statusCode);
           Serial.print("Response: ");
           Serial.println(response);          
-        // }
+        }
 
         /* Publishes Vulva Sensor available data */
         while (vulvaSensorQueue.size() != 0)
