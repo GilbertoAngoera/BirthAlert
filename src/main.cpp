@@ -182,8 +182,12 @@ unsigned long getTime()
 // }
 
 /**
- * Get timeStamp from SIM800L
- * @note Don't call this from tasks (threads).
+ *  @brief   Get network time 
+ *  @details Get date and time from GSM module (via AT commands).
+ *  
+ *  @return  Date and time string (YY/MM/DD,hh:mm:ss).
+ *
+ *  @note Don't call this from tasks (threads).
  */
 String getTimeFromGSM ()
 {
@@ -202,7 +206,7 @@ String getTimeFromGSM ()
       delay(50);
       response = SerialAT.readString();
       
-      /* Get clean date and time string (from +CCLK: "21/07/30,14:17:39-12") */
+      /* Get clean date and time string (+CCLK: "21/07/30,14:17:39-12") */
       return response.substring (AT_TIME_BEGIN, AT_TIME_END);
     }
   }
@@ -210,7 +214,10 @@ String getTimeFromGSM ()
 }
 
 /**
- * Set local time from GSM network
+ *  @brief    Set local time from GSM network
+ *  @details  Set system clock time and timezone.
+ * 
+ *  @note No daylight saving (dst) is used. 
  */
 void setLocalTime (String dateTime)
 {
@@ -218,37 +225,21 @@ void setLocalTime (String dateTime)
   time_t time;
   timeval timeVal = {0, 0};       // {sec, usec}
 
-  Serial.println (dateTime);
-
-  timeStruct.tm_year = dateTime.substring(0, 2).toInt() + 100;
-  timeStruct.tm_mon  = dateTime.substring(3, 5).toInt() - 1;
+  timeStruct.tm_year = dateTime.substring(0, 2).toInt() + 100;  // Fixes year value (well known adjustment)
+  timeStruct.tm_mon  = dateTime.substring(3, 5).toInt() - 1;    // Fixes month value (well known adjustment)
   timeStruct.tm_mday = dateTime.substring(6, 8).toInt();
   timeStruct.tm_hour = dateTime.substring(9, 11).toInt() + 3;   // Remove GMT-3 offset to transform in UTC time (required for 'settimeofday()')
   timeStruct.tm_min  = dateTime.substring(12, 14).toInt();
   timeStruct.tm_sec  = dateTime.substring(15, 17).toInt();
 
-  Serial.println (timeStruct.tm_year);
-  Serial.println (timeStruct.tm_mon);
-  Serial.println (timeStruct.tm_mday);
-  Serial.println (timeStruct.tm_hour);
-  Serial.println (timeStruct.tm_min);
-  Serial.println (timeStruct.tm_sec);
-  
-  Serial.println (asctime(&timeStruct));
+  // Serial.println (asctime(&timeStruct));
 
   /* Get UNIX time */
   time = mktime (&timeStruct);
-  Serial.println (time);  
   timeVal.tv_sec = time;
 
-  // timeZone.tz_minuteswest = 180;
-  // timeZone.tz_dsttime = 0;
-
-  Serial.println (time);
-
-  /* Set time */
-  settimeofday(&timeVal, NULL);
-  // localtime (&time);
+  /* Set system time */
+  settimeofday (&timeVal, NULL);
 }
 
 void setup()
@@ -326,13 +317,13 @@ void setup()
     /* APN connected */
     SerialMon.println (" OK");
 
-    /* Get time from network */
+    /* Set system time from network */
     String time = getTimeFromGSM ();
     setLocalTime (time);
 
     /* Disconnect from Time Server */
     modem.gprsDisconnect();
-    SerialMon.println (F("GPRS disconnected"));
+    SerialMon.println (F("Time Server disconnected"));
   }
 
   /* RTOS tasks creation to run independently. */
