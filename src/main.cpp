@@ -670,27 +670,27 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Send Keep-Alive request */
         SerialMon.println("Performing HTTP POST request...");
 
-        HttpClient KeepAliveRequest = HttpClient (client, server, port);
+        HttpClient http = HttpClient (client, server, port);
 
         /* Get local MacAddress */
         BLEAddress addr = BLEDevice::getAddress();
 
         /* JSON request data */
-        String keepAliveRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
+        String httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
                                        "\"timeStamp\":"        + String (getTime())               + ","
                                        "\"sensorsConected\":"  + String (0)                       + ","
                                        "\"token\":\""          + String (apiKey)                  + "\"}";
 
-        KeepAliveRequest.sendHeader ("Content-Length", String(keepAliveRequestBody.length()));
-        KeepAliveRequest.post (endpointKeepAlive, "Content-Type: application/json", keepAliveRequestBody);
+        http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+        http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
 
         SerialMon.println ();
-        SerialMon.println (keepAliveRequestBody);
+        SerialMon.println (httpRequestBody);
         SerialMon.println ();
 
         // Read the status code and body of the response
-        int statusCode = KeepAliveRequest.responseStatusCode();
-        String response = KeepAliveRequest.responseBody();
+        int statusCode = http.responseStatusCode();
+        String response = http.responseBody();
 
         Serial.print("Status code: ");
         Serial.println(statusCode);
