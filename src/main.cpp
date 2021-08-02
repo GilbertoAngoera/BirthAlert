@@ -15,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "esp_system.h"
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
@@ -84,6 +85,10 @@ const char simPIN[] = "";             // SIM card PIN (leave empty, if not defin
 // Server details
 const char server[] = "birthalert.angoeratech.com.br";
 const char resource[] = "/api/setSensorCoxa";
+const char endpointThighSensor[] = "/api/setSensorCoxa";
+const char endpointVulvaSensor[] = "/api/setSensorVulva";
+const char endpointHygroSensor[] = "/api/setSensorUmidadeTemperatura";
+const char endpointKeepAlive[] = "/api/setKeepAliveRoteador";
 const char apiKey[] = "117f08a0a9c5808e93a4c246ec0f2dab";
 const int  port = 80;
 
@@ -661,6 +666,37 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Send HTTP Request */
 
         }
+
+        /* Send Keep-Alive request */
+        SerialMon.println("Performing HTTP POST request...");
+
+        HttpClient KeepAliveRequest = HttpClient (client, server, port);
+
+        /* Get local MacAddress */
+        BLEAddress addr = BLEDevice::getAddress();
+
+        /* JSON request data */
+        String keepAliveRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
+                                       "\"timeStamp\":"        + String (getTime())               + ","
+                                       "\"sensorsConected\":"  + String (0)                       + ","
+                                       "\"token\":\""          + String (apiKey)                  + "\"}";
+
+        KeepAliveRequest.sendHeader ("Content-Length", String(keepAliveRequestBody.length()));
+        KeepAliveRequest.post (endpointKeepAlive, "Content-Type: application/json", keepAliveRequestBody);
+
+        SerialMon.println ();
+        SerialMon.println (keepAliveRequestBody);
+        SerialMon.println ();
+
+        // Read the status code and body of the response
+        int statusCode = KeepAliveRequest.responseStatusCode();
+        String response = KeepAliveRequest.responseBody();
+
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        Serial.print("Response: ");
+        Serial.println(response);
+
         // Close client and disconnect from Server
         client.stop();
         SerialMon.println(F("Server disconnected"));
