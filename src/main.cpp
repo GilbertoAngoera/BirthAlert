@@ -599,7 +599,10 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Exit critical session */
           xSemaphoreGive (SensorQueueMutex);
 
-          /* Test sending HTTP POST request via 'client.print' */
+          /* Send HTTP Request */
+#ifdef DEBUG_REQUEST          
+          SerialMon.println("Performing HTTP POST request...");
+#endif
           /* JSON request data */
           httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
                              "\"battery\":\""     + String (thighSensor.battery)             + "\","
@@ -607,59 +610,26 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                              "\"temperature\":"   + String (thighSensor.temperature)         + ","
                              "\"active\":"        + String (thighSensor.activity)            + ","
                              "\"position\":"      + String (thighSensor.position)            + ","
-                             "\"token\":\""       + String (apiKey)                          + "\"}";          
+                             "\"token\":\""       + String (apiKey)                          + "\"}";
 
-          client.print (String("POST ") + endpointThighSensor + " HTTP/1.1\r\n");
-          client.print (String("Host: ") + server + "\r\n");
-          client.println ("Connection: close");
-          client.println ("Content-Type: application/x-www-form-urlencoded");
-          client.print ("Content-Length: ");
-          client.println (httpRequestBody.length());
-          client.println ();
-          client.println (httpRequestBody);
+          http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+          http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
 
-          unsigned long timeout = millis();
-          while (client.connected() && millis() - timeout < 10000L) {
-            // Print available data (HTTP response from server)
-            while (client.available()) {
-              char c = client.read();
-              SerialMon.print(c);
-              timeout = millis();
-            }
-          }
-          SerialMon.println();          
+#ifdef DEBUG_REQUEST
+          SerialMon.println ();
+          SerialMon.println (httpRequestBody);
+          SerialMon.println ();
+#endif
+          // Read the status code and body of the response
+          statusCode = http.responseStatusCode();
+          response = http.responseBody();
 
-//           /* Send HTTP Request */
-// #ifdef DEBUG_REQUEST          
-//           SerialMon.println("Performing HTTP POST request...");
-// #endif
-//           /* JSON request data */
-//           httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
-//                              "\"battery\":\""     + String (thighSensor.battery)             + "\","
-//                              "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
-//                              "\"temperature\":"   + String (thighSensor.temperature)         + ","
-//                              "\"active\":"        + String (thighSensor.activity)            + ","
-//                              "\"position\":"      + String (thighSensor.position)            + ","
-//                              "\"token\":\""       + String (apiKey)                          + "\"}";
-
-//           http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-//           http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
-
-// #ifdef DEBUG_REQUEST
-//           SerialMon.println ();
-//           SerialMon.println (httpRequestBody);
-//           SerialMon.println ();
-// #endif
-//           // Read the status code and body of the response
-//           statusCode = http.responseStatusCode();
-//           response = http.responseBody();
-
-// #ifdef DEBUG_REQUEST
-//           Serial.print("Status code: ");
-//           Serial.println(statusCode);
-//           Serial.print("Response: ");
-//           Serial.println(response);
-// #endif
+#ifdef DEBUG_REQUEST
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+          Serial.print("Response: ");
+          Serial.println(response);
+#endif
           /* If transaction is successful, remove from queue */
           if (statusCode == 201)
           {
@@ -709,38 +679,38 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
         }
 
-//         /* Send Keep-Alive request */
-// #ifdef DEBUG_REQUEST        
-//         SerialMon.println("Performing HTTP POST request...");
-// #endif        
+        /* Send Keep-Alive request */
+#ifdef DEBUG_REQUEST        
+        SerialMon.println("Performing HTTP POST request...");
+#endif        
 
-//         /* Get local MacAddress */
-//         BLEAddress addr = BLEDevice::getAddress();
+        /* Get local MacAddress */
+        BLEAddress addr = BLEDevice::getAddress();
 
-//         /* JSON request data */
-//         httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
-//                            "\"timeStamp\":"        + String (getTime())               + ","
-//                            "\"sensorsConected\":"  + String (0)                       + ","
-//                            "\"token\":\""          + String (apiKey)                  + "\"}";
+        /* JSON request data */
+        httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
+                           "\"timeStamp\":"        + String (getTime())               + ","
+                           "\"sensorsConected\":"  + String (0)                       + ","
+                           "\"token\":\""          + String (apiKey)                  + "\"}";
 
-//         http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-//         http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
+        http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+        http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
 
-// #ifdef DEBUG_REQUEST
-//         SerialMon.println ();
-//         SerialMon.println (httpRequestBody);
-//         SerialMon.println ();
-// #endif
-//         // Read the status code and body of the response
-//         statusCode = http.responseStatusCode();
-//         response = http.responseBody();
+#ifdef DEBUG_REQUEST
+        SerialMon.println ();
+        SerialMon.println (httpRequestBody);
+        SerialMon.println ();
+#endif
+        // Read the status code and body of the response
+        statusCode = http.responseStatusCode();
+        response = http.responseBody();
 
-// #ifdef DEBUG_REQUEST
-//         Serial.print("Status code: ");
-//         Serial.println(statusCode);
-//         Serial.print("Response: ");
-//         Serial.println(response);
-// #endif
+#ifdef DEBUG_REQUEST
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        Serial.print("Response: ");
+        Serial.println(response);
+#endif
         // Close client and disconnect from Server
         client.stop();
         SerialMon.println(F("Server disconnected"));
