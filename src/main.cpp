@@ -576,6 +576,13 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Server connected */
         SerialMon.println(" OK");
 
+        /* Setup HTTP client */
+        HttpClient http = HttpClient (client, server, port);
+
+        String httpRequestBody;
+        int statusCode;
+        String response;
+
         /* Publishes Thigh Sensor available data */
         while (thighSensorQueue.size() != 0)
         {
@@ -591,10 +598,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Send HTTP Request */
           SerialMon.println("Performing HTTP POST request...");
 
-          HttpClient http = HttpClient (client, server, port);
-
           /* JSON request data */
-          String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
+          httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
                                     "\"battery\":\""     + String (thighSensor.battery)             + "\","
                                     "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
                                     "\"temperature\":"   + String (thighSensor.temperature)         + ","
@@ -610,8 +615,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           SerialMon.println ();
 
           // Read the status code and body of the response
-          int statusCode = http.responseStatusCode();
-          String response = http.responseBody();
+          statusCode = http.responseStatusCode();
+          response = http.responseBody();
 
           Serial.print("Status code: ");
           Serial.println(statusCode);
@@ -670,13 +675,11 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Send Keep-Alive request */
         SerialMon.println("Performing HTTP POST request...");
 
-        HttpClient http = HttpClient (client, server, port);
-
         /* Get local MacAddress */
         BLEAddress addr = BLEDevice::getAddress();
 
         /* JSON request data */
-        String httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
+        httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
                                        "\"timeStamp\":"        + String (getTime())               + ","
                                        "\"sensorsConected\":"  + String (0)                       + ","
                                        "\"token\":\""          + String (apiKey)                  + "\"}";
@@ -689,8 +692,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         SerialMon.println ();
 
         // Read the status code and body of the response
-        int statusCode = http.responseStatusCode();
-        String response = http.responseBody();
+        statusCode = http.responseStatusCode();
+        response = http.responseBody();
 
         Serial.print("Status code: ");
         Serial.println(statusCode);
