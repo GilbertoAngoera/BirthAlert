@@ -29,6 +29,7 @@ using namespace std;
 
 /* If defined, allows terminal debug info */
 #define DEBUG
+// #define DEBUG_REQUEST
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
@@ -458,6 +459,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             /* Stores sensor sample on queue */
             thighSensorQueue.push (thighSensor);
 #ifdef DEBUG
+            Serial.printf("Queue size: %d\n", thighSensorQueue.size());
             /* Print latest sample values */
             Serial.printf("Sensor Name: %s\n", thighSensorQueue.back().header.name.c_str());
             Serial.printf("Sensor Addr: %s\n", thighSensorQueue.back().header.addr.c_str());
@@ -486,6 +488,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             /* Stores sensor sample on queue */
             vulvaSensorQueue.push (vulvaSensor);
 #ifdef DEBUG
+            Serial.printf("Queue size: %d\n", vulvaSensorQueue.size());
             /* Print latest sample values */
             Serial.printf("Sensor Name: %s\n", vulvaSensorQueue.back().header.name.c_str());
             Serial.printf("Sensor Addr: %s\n", vulvaSensorQueue.back().header.addr.c_str());
@@ -513,6 +516,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             /* Stores sensor sample on queue */
             hygroSensorQueue.push (hygroSensor);
 #ifdef DEBUG
+            Serial.printf("Queue size: %d\n", hygroSensorQueue.size());
             /* Print latest sample values */
             Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name.c_str());
             Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
@@ -596,33 +600,36 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           xSemaphoreGive (SensorQueueMutex);
 
           /* Send HTTP Request */
+#ifdef DEBUG_REQUEST          
           SerialMon.println("Performing HTTP POST request...");
-
+#endif
           /* JSON request data */
           httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
-                                    "\"battery\":\""     + String (thighSensor.battery)             + "\","
-                                    "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
-                                    "\"temperature\":"   + String (thighSensor.temperature)         + ","
-                                    "\"active\":"        + String (thighSensor.activity)            + ","
-                                    "\"position\":"      + String (thighSensor.position)            + ","
-                                    "\"token\":\""       + String (apiKey)                          + "\"}";
+                             "\"battery\":\""     + String (thighSensor.battery)             + "\","
+                             "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
+                             "\"temperature\":"   + String (thighSensor.temperature)         + ","
+                             "\"active\":"        + String (thighSensor.activity)            + ","
+                             "\"position\":"      + String (thighSensor.position)            + ","
+                             "\"token\":\""       + String (apiKey)                          + "\"}";
 
           http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-          http.post (resource, "Content-Type: application/json", httpRequestBody);
+          http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
 
+#ifdef DEBUG_REQUEST
           SerialMon.println ();
           SerialMon.println (httpRequestBody);
           SerialMon.println ();
-
+#endif
           // Read the status code and body of the response
           statusCode = http.responseStatusCode();
           response = http.responseBody();
 
+#ifdef DEBUG_REQUEST
           Serial.print("Status code: ");
           Serial.println(statusCode);
           Serial.print("Response: ");
           Serial.println(response);
-
+#endif
           /* If transaction is successful, remove from queue */
           if (statusCode == 201)
           {
@@ -673,33 +680,37 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         }
 
         /* Send Keep-Alive request */
+#ifdef DEBUG_REQUEST        
         SerialMon.println("Performing HTTP POST request...");
+#endif        
 
         /* Get local MacAddress */
         BLEAddress addr = BLEDevice::getAddress();
 
         /* JSON request data */
         httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
-                                       "\"timeStamp\":"        + String (getTime())               + ","
-                                       "\"sensorsConected\":"  + String (0)                       + ","
-                                       "\"token\":\""          + String (apiKey)                  + "\"}";
+                           "\"timeStamp\":"        + String (getTime())               + ","
+                           "\"sensorsConected\":"  + String (0)                       + ","
+                           "\"token\":\""          + String (apiKey)                  + "\"}";
 
         http.sendHeader ("Content-Length", String(httpRequestBody.length()));
         http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
 
+#ifdef DEBUG_REQUEST
         SerialMon.println ();
         SerialMon.println (httpRequestBody);
         SerialMon.println ();
-
+#endif
         // Read the status code and body of the response
         statusCode = http.responseStatusCode();
         response = http.responseBody();
 
+#ifdef DEBUG_REQUEST
         Serial.print("Status code: ");
         Serial.println(statusCode);
         Serial.print("Response: ");
         Serial.println(response);
-
+#endif
         // Close client and disconnect from Server
         client.stop();
         SerialMon.println(F("Server disconnected"));
