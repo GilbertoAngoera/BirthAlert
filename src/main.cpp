@@ -562,144 +562,65 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   /* Creates the HTTP client */
   HttpClient http = HttpClient (client, server, port);
 
-  while (1)
+  /* Connect to APN */
+  SerialMon.print("Connecting to APN: ");
+  SerialMon.print(apn);
+  if (!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
-    /* Connect to APN */
-    SerialMon.print ("Connecting to APN: ");
-    SerialMon.print (apn);
-    if (!modem.gprsConnect (apn, gprsUser, gprsPass))
+    SerialMon.println(" fail");
+  }
+  else
+  {
+    /* APN connected */
+    SerialMon.println(" OK");
+
+    /* Connect to Server */
+    SerialMon.print("Connecting to ");
+    SerialMon.print(server);
+    if (!client.connect(server, port))
     {
-      SerialMon.println (" fail");
+      SerialMon.println(" fail");
     }
     else
     {
-      /* APN connected */
-      SerialMon.println (" OK");
+      /* Server connected */
+      SerialMon.println(" OK");
+    }
 
-      /* Connect to Server */
-      SerialMon.print("Connecting to ");
-      SerialMon.print(server);
-      if (!client.connect(server, port)) {
-        SerialMon.println(" fail");
-      }
-      else
+    while (1)
+    {
+      /* Publishes Thigh Sensor available data */
+      while (thighSensorQueue.size() != 0)
       {
-        /* Server connected */
-        SerialMon.println(" OK");
+        /* Enter critical session to access the queue */
+        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Publishes Thigh Sensor available data */
-        while (thighSensorQueue.size() != 0)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+        /* Get sensor sample from queue (but don't remove it) */
+        thighSensor = thighSensorQueue.front();
 
-          /* Get sensor sample from queue (but don't remove it) */
-          thighSensor = thighSensorQueue.front();
+        /* Exit critical session */
+        xSemaphoreGive(SensorQueueMutex);
 
-          /* Exit critical session */
-          xSemaphoreGive (SensorQueueMutex);
-
-          /* Send HTTP Request */
+        /* Send HTTP Request */
 #ifdef DEBUG_REQUEST          
           SerialMon.println("Performing HTTP POST request...");
 #endif
-          /* JSON request data */
-          httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
-                             "\"battery\":\""     + String (thighSensor.battery)             + "\","
-                             "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
-                             "\"temperature\":"   + String (thighSensor.temperature)         + ","
-                             "\"active\":"        + String (thighSensor.activity)            + ","
-                             "\"position\":"      + String (thighSensor.position)            + ","
-                             "\"token\":\""       + String (apiKey)                          + "\"}";
-
-          http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-          http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
-
-#ifdef DEBUG_REQUEST
-          SerialMon.println ();
-          SerialMon.println (httpRequestBody);
-          SerialMon.println ();
-#endif
-          // Read the status code and body of the response
-          statusCode = http.responseStatusCode();
-          response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-          Serial.print("Status code: ");
-          Serial.println(statusCode);
-          Serial.print("Response: ");
-          Serial.println(response);
-#endif
-          /* If transaction is successful, remove from queue */
-          if (statusCode == 201)
-          {
-            /* Enter critical session to access the queue */
-            xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
-
-            /* Remove sensor sample from queue */
-            thighSensorQueue.pop();
-
-            /* Exit critical session */
-            xSemaphoreGive (SensorQueueMutex);
-          }          
-        }
-
-        /* Publishes Vulva Sensor available data */
-        while (vulvaSensorQueue.size() != 0)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
-
-          /* Get and Remove sensor sample from queue */
-          vulvaSensor = vulvaSensorQueue.front();
-          vulvaSensorQueue.pop();
-
-          /* Exit critical session */
-          xSemaphoreGive (SensorQueueMutex);
-
-          /* Send HTTP Request */
-          
-
-        }
-
-        /* Publishes Hygrometer Sensor available data */
-        while (hygroSensorQueue.size() != 0)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
-          
-          /* Get and Remove sensor sample from queue */
-          hygroSensor = hygroSensorQueue.front();
-          hygroSensorQueue.pop();
-
-          /* Exit critical session */
-          xSemaphoreGive (SensorQueueMutex);
-
-          /* Send HTTP Request */
-
-        }
-
-        /* Send Keep-Alive request */
-#ifdef DEBUG_REQUEST        
-        SerialMon.println("Performing HTTP POST request...");
-#endif        
-
-        /* Get local MacAddress */
-        BLEAddress addr = BLEDevice::getAddress();
-
         /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
-                           "\"timeStamp\":"        + String (getTime())               + ","
-                           "\"sensorsConected\":"  + String (0)                       + ","
-                           "\"token\":\""          + String (apiKey)                  + "\"}";
+        httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
+                           "\"battery\":\""     + String (thighSensor.battery)             + "\","
+                           "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
+                           "\"temperature\":"   + String (thighSensor.temperature)         + ","
+                           "\"active\":"        + String (thighSensor.activity)            + ","
+                           "\"position\":"      + String (thighSensor.position)            + ","
+                           "\"token\":\""       + String (apiKey)                          + "\"}";
 
         http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-        http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
+        http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
-        SerialMon.println ();
-        SerialMon.println (httpRequestBody);
-        SerialMon.println ();
+        SerialMon.println();
+        SerialMon.println(httpRequestBody);
+        SerialMon.println();
 #endif
         // Read the status code and body of the response
         statusCode = http.responseStatusCode();
@@ -711,48 +632,143 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         Serial.print("Response: ");
         Serial.println(response);
 #endif
-        // Close client and disconnect from Server
-        client.stop();
-        SerialMon.println(F("Server disconnected"));
+        /* If transaction is successful, remove from queue */
+        if (statusCode == 201)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+          /* Remove sensor sample from queue */
+          thighSensorQueue.pop();
+
+          /* Exit critical session */
+          xSemaphoreGive(SensorQueueMutex);
+        }
       }
 
-      /* Disconnect from APN */
-      modem.gprsDisconnect();
-      SerialMon.println (F("GPRS disconnected"));
-    }
-    vTaskDelay (15000 / portTICK_PERIOD_MS);
-  }
-}
+      /* Publishes Vulva Sensor available data */
+      while (vulvaSensorQueue.size() != 0)
+      {
+        /* Enter critical session to access the queue */
+        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-/**
+        /* Get and Remove sensor sample from queue */
+        vulvaSensor = vulvaSensorQueue.front();
+        vulvaSensorQueue.pop();
+
+        /* Exit critical session */
+        xSemaphoreGive(SensorQueueMutex);
+
+        /* Send HTTP Request */
+      }
+
+      /* Publishes Hygrometer Sensor available data */
+      while (hygroSensorQueue.size() != 0)
+      {
+        /* Enter critical session to access the queue */
+        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+        /* Get and Remove sensor sample from queue */
+        hygroSensor = hygroSensorQueue.front();
+        hygroSensorQueue.pop();
+
+        /* Exit critical session */
+        xSemaphoreGive(SensorQueueMutex);
+
+        /* Send HTTP Request */
+      }
+
+      /* Send Keep-Alive request */
+#ifdef DEBUG_REQUEST        
+      SerialMon.println("Performing HTTP POST request...");
+#endif        
+
+        /* Get local MacAddress */
+      BLEAddress addr = BLEDevice::getAddress();
+
+      /* JSON request data */
+      httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
+                         "\"timeStamp\":"        + String (getTime())               + ","
+                         "\"sensorsConected\":"  + String (0)                       + ","
+                         "\"token\":\""          + String (apiKey)                  + "\"}";
+
+      http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+      http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
+
+#ifdef DEBUG_REQUEST
+      SerialMon.println();
+      SerialMon.println(httpRequestBody);
+      SerialMon.println();
+#endif
+      // Read the status code and body of the response
+      statusCode = http.responseStatusCode();
+      response = http.responseBody();
+
+#ifdef DEBUG_REQUEST
+      Serial.print("Status code: ");
+      Serial.println(statusCode);
+      Serial.print("Response: ");
+      Serial.println(response);
+#endif
+      /* Reconnect to network when necessary */
+      if (!modem.isNetworkConnected())
+      {
+        if (!modem.gprsConnect(apn, gprsUser, gprsPass))
+        {
+          SerialMon.println(" fail");
+        }
+        else
+        {
+          /* APN connected */
+          SerialMon.println(" OK");
+
+          /* Connect to Server */
+          SerialMon.print("Connecting to ");
+          SerialMon.print(server);
+          if (!client.connect(server, port))
+          {
+            SerialMon.println(" fail");
+          }
+          else
+          {
+            /* Server connected */
+            SerialMon.println(" OK");
+          }
+        }
+      }
+      vTaskDelay(15000 / portTICK_PERIOD_MS);
+    }
+  }
+
+  /**
  *  @brief    Task intended just to monitoring application behavior
  *  @details  None.
  */
-void UI_Task(void *pvParameters __attribute__((unused))) // This is a Task.
-{
-  /* Configure the IOMUX register for pad BLINK_GPIO (some pads are
+  void UI_Task(void *pvParameters __attribute__((unused))) // This is a Task.
+  {
+    /* Configure the IOMUX register for pad BLINK_GPIO (some pads are
        muxed to GPIO on reset already, but some default to other
        functions and need to be switched to GPIO. Consult the
        Technical Reference for a list of pads and their default
        functions.)
     */
-  gpio_pad_select_gpio(BLINK_GPIO);
-  /* Set the GPIO as a push/pull output */
-  gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
+    gpio_pad_select_gpio(BLINK_GPIO);
+    /* Set the GPIO as a push/pull output */
+    gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 
-  while (1)
-  {
-    /* Blink off (output low) */
-    gpio_set_level(BLINK_GPIO, 0);
-    vTaskDelay(450 / portTICK_PERIOD_MS);
+    while (1)
+    {
+      /* Blink off (output low) */
+      gpio_set_level(BLINK_GPIO, 0);
+      vTaskDelay(450 / portTICK_PERIOD_MS);
 
-    /* Blink on (output high) */
-    gpio_set_level(BLINK_GPIO, 1);
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+      /* Blink on (output high) */
+      gpio_set_level(BLINK_GPIO, 1);
+      vTaskDelay(50 / portTICK_PERIOD_MS);
+    }
   }
-}
 
-void loop()
-{
-  // Empty. Things are done in Tasks.
-}
+  void loop()
+  {
+    // Empty. Things are done in Tasks.
+  }
