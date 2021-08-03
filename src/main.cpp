@@ -38,6 +38,7 @@ using namespace std;
 #define AT_TIME_BEGIN   10
 #define AT_TIME_END     AT_TIME_BEGIN + AT_TIME_LEN
 
+#define MAX_SENSOR_BLOCK  3
 
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
 #define BLINK_GPIO GPIO_NUM_13
@@ -557,7 +558,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   hygrometer_sensor_data_t hygroSensor;
   String httpRequestBody;
   String response;
-  int statusCode;
+  int statusCode = 0;
+  int sensorBlock = MAX_SENSOR_BLOCK;
 
   /* Creates the HTTP client */
   HttpClient http = HttpClient (client, server, port);
@@ -589,8 +591,11 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
     while (1)
     {
-      /* Publishes Thigh Sensor available data */
-      while (thighSensorQueue.size() != 0)
+      /* Init sensor sample counter */
+      sensorBlock = MAX_SENSOR_BLOCK;
+
+      /* Publishes Thigh Sensor available data (in blocks of maximun size to allow other sensor types to be published */
+      while ((thighSensorQueue.size() != 0) && (sensorBlock <= MAX_SENSOR_BLOCK))
       {
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -644,7 +649,11 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Exit critical session */
           xSemaphoreGive(SensorQueueMutex);
         }
+        /* Increment sample counter */
+        sensorBlock++;
       }
+      /* Reinit sensor sample counter */
+      sensorBlock = MAX_SENSOR_BLOCK;
 
       /* Publishes Vulva Sensor available data */
       while (vulvaSensorQueue.size() != 0)
@@ -739,13 +748,14 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       vTaskDelay(15000 / portTICK_PERIOD_MS);
     }
   }
+}
 
-  /**
+ /**
  *  @brief    Task intended just to monitoring application behavior
  *  @details  None.
  */
-  void UI_Task(void *pvParameters __attribute__((unused))) // This is a Task.
-  {
+ void UI_Task(void *pvParameters __attribute__((unused))) // This is a Task.
+ {
     /* Configure the IOMUX register for pad BLINK_GPIO (some pads are
        muxed to GPIO on reset already, but some default to other
        functions and need to be switched to GPIO. Consult the
