@@ -29,7 +29,7 @@ using namespace std;
 
 /* If defined, allows terminal debug info */
 #define DEBUG
-// #define DEBUG_REQUEST
+#define DEBUG_REQUEST
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
@@ -459,7 +459,6 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             /* Stores sensor sample on queue */
             thighSensorQueue.push (thighSensor);
 #ifdef DEBUG
-            Serial.printf("Queue size: %d\n", thighSensorQueue.size());
             /* Print latest sample values */
             Serial.printf("Sensor Name: %s\n", thighSensorQueue.back().header.name.c_str());
             Serial.printf("Sensor Addr: %s\n", thighSensorQueue.back().header.addr.c_str());
@@ -468,6 +467,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             Serial.printf("Sensor Act.: %d\n", thighSensorQueue.back().activity);
             Serial.printf("Sensor Temp: %d\n", thighSensorQueue.back().temperature);
             Serial.printf("Sensor Pos : %d\n", thighSensorQueue.back().position);
+            Serial.printf("Queue size: %d\n", thighSensorQueue.size());            
 #endif
             /* Exit critical session */
             xSemaphoreGive (SensorQueueMutex);
@@ -488,7 +488,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             /* Stores sensor sample on queue */
             vulvaSensorQueue.push (vulvaSensor);
 #ifdef DEBUG
-            Serial.printf("Queue size: %d\n", vulvaSensorQueue.size());
+
             /* Print latest sample values */
             Serial.printf("Sensor Name: %s\n", vulvaSensorQueue.back().header.name.c_str());
             Serial.printf("Sensor Addr: %s\n", vulvaSensorQueue.back().header.addr.c_str());
@@ -496,6 +496,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             Serial.printf("Sensor Batt: %d\n", vulvaSensorQueue.back().battery);
             Serial.printf("Sensor Dil : %d\n", vulvaSensorQueue.back().dilation);
             Serial.printf("Sensor Gap : %d\n", vulvaSensorQueue.back().gap);
+            Serial.printf("Queue size: %d\n", vulvaSensorQueue.size());            
 #endif
             /* Exit critical session */
             xSemaphoreGive (SensorQueueMutex);
@@ -516,7 +517,6 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             /* Stores sensor sample on queue */
             hygroSensorQueue.push (hygroSensor);
 #ifdef DEBUG
-            Serial.printf("Queue size: %d\n", hygroSensorQueue.size());
             /* Print latest sample values */
             Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name.c_str());
             Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
@@ -524,6 +524,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             Serial.printf("Sensor Batt: %d\n", hygroSensorQueue.back().battery);
             Serial.printf("Sensor Hum.: %d\n", hygroSensorQueue.back().humidity);
             Serial.printf("Sensor Temp: %d\n", hygroSensorQueue.back().temperature);
+            Serial.printf("Queue size: %d\n", hygroSensorQueue.size());
 #endif
             /* Exit critical session */
             xSemaphoreGive (SensorQueueMutex);
@@ -554,6 +555,12 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   thigh_sensor_data_t thighSensor;
   vulva_sensor_data_t vulvaSensor;
   hygrometer_sensor_data_t hygroSensor;
+  String httpRequestBody;
+  String response;
+  int statusCode;
+
+  /* Creates the HTTP client */
+  HttpClient http = HttpClient (client, server, port);
 
   while (1)
   {
@@ -580,13 +587,6 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Server connected */
         SerialMon.println(" OK");
 
-        /* Setup HTTP client */
-        HttpClient http = HttpClient (client, server, port);
-
-        String httpRequestBody;
-        int statusCode;
-        String response;
-
         /* Publishes Thigh Sensor available data */
         while (thighSensorQueue.size() != 0)
         {
@@ -599,10 +599,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Exit critical session */
           xSemaphoreGive (SensorQueueMutex);
 
-          /* Send HTTP Request */
-#ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing HTTP POST request...");
-#endif
+          /* Test sending HTTP POST request via 'client.print' */
           /* JSON request data */
           httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
                              "\"battery\":\""     + String (thighSensor.battery)             + "\","
@@ -610,26 +607,59 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                              "\"temperature\":"   + String (thighSensor.temperature)         + ","
                              "\"active\":"        + String (thighSensor.activity)            + ","
                              "\"position\":"      + String (thighSensor.position)            + ","
-                             "\"token\":\""       + String (apiKey)                          + "\"}";
+                             "\"token\":\""       + String (apiKey)                          + "\"}";          
 
-          http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-          http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
+          client.print (String("POST ") + endpointThighSensor + " HTTP/1.1\r\n");
+          client.print (String("Host: ") + server + "\r\n");
+          client.println ("Connection: close");
+          client.println ("Content-Type: application/x-www-form-urlencoded");
+          client.print ("Content-Length: ");
+          client.println (httpRequestBody.length());
+          client.println ();
+          client.println (httpRequestBody);
 
-#ifdef DEBUG_REQUEST
-          SerialMon.println ();
-          SerialMon.println (httpRequestBody);
-          SerialMon.println ();
-#endif
-          // Read the status code and body of the response
-          statusCode = http.responseStatusCode();
-          response = http.responseBody();
+          unsigned long timeout = millis();
+          while (client.connected() && millis() - timeout < 10000L) {
+            // Print available data (HTTP response from server)
+            while (client.available()) {
+              char c = client.read();
+              SerialMon.print(c);
+              timeout = millis();
+            }
+          }
+          SerialMon.println();          
 
-#ifdef DEBUG_REQUEST
-          Serial.print("Status code: ");
-          Serial.println(statusCode);
-          Serial.print("Response: ");
-          Serial.println(response);
-#endif
+//           /* Send HTTP Request */
+// #ifdef DEBUG_REQUEST          
+//           SerialMon.println("Performing HTTP POST request...");
+// #endif
+//           /* JSON request data */
+//           httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
+//                              "\"battery\":\""     + String (thighSensor.battery)             + "\","
+//                              "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
+//                              "\"temperature\":"   + String (thighSensor.temperature)         + ","
+//                              "\"active\":"        + String (thighSensor.activity)            + ","
+//                              "\"position\":"      + String (thighSensor.position)            + ","
+//                              "\"token\":\""       + String (apiKey)                          + "\"}";
+
+//           http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+//           http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
+
+// #ifdef DEBUG_REQUEST
+//           SerialMon.println ();
+//           SerialMon.println (httpRequestBody);
+//           SerialMon.println ();
+// #endif
+//           // Read the status code and body of the response
+//           statusCode = http.responseStatusCode();
+//           response = http.responseBody();
+
+// #ifdef DEBUG_REQUEST
+//           Serial.print("Status code: ");
+//           Serial.println(statusCode);
+//           Serial.print("Response: ");
+//           Serial.println(response);
+// #endif
           /* If transaction is successful, remove from queue */
           if (statusCode == 201)
           {
@@ -679,38 +709,38 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
         }
 
-        /* Send Keep-Alive request */
-#ifdef DEBUG_REQUEST        
-        SerialMon.println("Performing HTTP POST request...");
-#endif        
+//         /* Send Keep-Alive request */
+// #ifdef DEBUG_REQUEST        
+//         SerialMon.println("Performing HTTP POST request...");
+// #endif        
 
-        /* Get local MacAddress */
-        BLEAddress addr = BLEDevice::getAddress();
+//         /* Get local MacAddress */
+//         BLEAddress addr = BLEDevice::getAddress();
 
-        /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
-                           "\"timeStamp\":"        + String (getTime())               + ","
-                           "\"sensorsConected\":"  + String (0)                       + ","
-                           "\"token\":\""          + String (apiKey)                  + "\"}";
+//         /* JSON request data */
+//         httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
+//                            "\"timeStamp\":"        + String (getTime())               + ","
+//                            "\"sensorsConected\":"  + String (0)                       + ","
+//                            "\"token\":\""          + String (apiKey)                  + "\"}";
 
-        http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-        http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
+//         http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+//         http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
 
-#ifdef DEBUG_REQUEST
-        SerialMon.println ();
-        SerialMon.println (httpRequestBody);
-        SerialMon.println ();
-#endif
-        // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
+// #ifdef DEBUG_REQUEST
+//         SerialMon.println ();
+//         SerialMon.println (httpRequestBody);
+//         SerialMon.println ();
+// #endif
+//         // Read the status code and body of the response
+//         statusCode = http.responseStatusCode();
+//         response = http.responseBody();
 
-#ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
-#endif
+// #ifdef DEBUG_REQUEST
+//         Serial.print("Status code: ");
+//         Serial.println(statusCode);
+//         Serial.print("Response: ");
+//         Serial.println(response);
+// #endif
         // Close client and disconnect from Server
         client.stop();
         SerialMon.println(F("Server disconnected"));
