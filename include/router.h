@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 
+using namespace std;
+
 #define HEX_BASE		        16
 
 #define THIGH_SENSOR_TYPE		0x01
@@ -50,9 +52,9 @@
  * Types to hold sensors data
  */
 typedef struct sensor_data {
-	char name [32];
-	char addr [18];
-	char time [64];
+	string name;
+	string addr;
+	unsigned long time;
 } sensor_data_t;
 
 typedef struct thigh_sensor_data {

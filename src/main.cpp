@@ -5,14 +5,13 @@
  * 
  *  References: 
  *    - Cloud Publishing: Rui Santos at https://RandomNerdTutorials.com/esp32-sim800l-publish-data-to-cloud/
- *                        "Permission is hereby granted, free of charge, to any person obtaining a copy
- *                         of this software and associated documentation files.  
- *                         The above copyright notice and this permission notice shall be included in all
- *                         copies or substantial portions of the Software."
  *    - Data Hosting:  https://nothans.com/thingspeak-tutorials/arduino/send-data-to-thingspeak-with-arduino
  */
 
+
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <ArduinoHttpClient.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -20,8 +19,8 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
-#include "ThingSpeak.h"
 #include <queue>
+#include <sys/time.h>
 #include <time.h>
 #include "router.h"
 
@@ -31,6 +30,12 @@ using namespace std;
 #define DEBUG
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
+
+#define AT_CMD_TIMEOUT  1200
+#define AT_TIME_LEN     17
+#define AT_TIME_BEGIN   10
+#define AT_TIME_END     AT_TIME_BEGIN + AT_TIME_LEN
+
 
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
 #define BLINK_GPIO GPIO_NUM_13
@@ -68,20 +73,25 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
  *  SIM800L definitions
  */
 
-// Your GPRS credentials (leave empty, if not needed)
-const char apn[] = "zap.vivo.com.br"; // APN (example: internet.vodafone.pt) use https://wiki.apnchanger.org
+// Your GPRS credentials
+const char apn[] = "zap.vivo.com.br"; // APN
 const char gprsUser[] = "vivo";       // GPRS User
 const char gprsPass[] = "vivo";       // GPRS Password
-// SIM card PIN (leave empty, if not defined)
-const char simPIN[] = "";
+const char simPIN[] = "";             // SIM card PIN (leave empty, if not defined)
 
-/* ThingSpeak data hosting info */
-#define THIGH_CHANNEL_ID 1442488 // Channel number
-#define VULVA_CHANNEL_ID 1442490
-#define HYGRO_CHANNEL_ID 1442491
-#define THIGH_WRITE_APIKEY "QA97KP6M0CU4QGKG" // Channel write API Key
-#define VULVA_WRITE_APIKEY "H44JEIQGRH2EIF44"
-#define HYGRO_WRITE_APIKEY "AIBH07K1DN2OAWS0"
+// Server details
+const char server[] = "birthalert.angoeratech.com.br";
+const char resource[] = "/api/setSensorCoxa";
+const char apiKey[] = "117f08a0a9c5808e93a4c246ec0f2dab";
+const int  port = 80;
+
+// NTP server info for time synch
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = -3 * 3600;  // Brazilian time offset (GMT-3)
+const int   daylightOffset_sec = 3600;
+
+struct tm *timeinfo;
+time_t now;
 
 // TTGO T-Call pins
 #define MODEM_RST 5
@@ -119,7 +129,7 @@ TinyGsm modem(SerialAT);
 TwoWire I2CPower = TwoWire(0);
 
 // TinyGSM Client for Internet connection
-TinyGsmClient client(modem);
+TinyGsmClient client (modem);
 
 #define IP5306_ADDR 0x75
 #define IP5306_REG_SYS_CTL0 0x00
@@ -128,6 +138,7 @@ TinyGsmClient client(modem);
 void Sensor_Task(void *pvParameters);
 void Cloud_Task(void *pvParameters);
 void UI_Task(void *pvParameters);
+
 
 bool setPowerBoostKeepOn(int en)
 {
@@ -142,6 +153,91 @@ bool setPowerBoostKeepOn(int en)
     I2CPower.write(0x35); // 0x37 is default reg value
   }
   return I2CPower.endTransmission() == 0;
+}
+
+// Function that gets current epoch time
+unsigned long getTime()
+{
+  // time_t now;
+  // struct tm timeinfo;
+
+  time(&now);
+  timeinfo = localtime(&now);
+
+  return now;
+}
+
+// unsigned long getTime()
+// {
+//   time_t now;
+//   struct tm timeinfo;
+//   if (!getLocalTime(&timeinfo)) {
+//     //Serial.println("Failed to obtain time");
+//     return(0);
+//   }
+//   time(&now);
+//   return now;
+// }
+
+/**
+ *  @brief   Get network time 
+ *  @details Get date and time from GSM module (via AT commands).
+ *  
+ *  @return  Date and time string (YY/MM/DD,hh:mm:ss).
+ *
+ *  @note Don't call this from tasks (threads).
+ */
+String getTimeFromGSM ()
+{
+  String response;
+  
+  /* Send AT command (Clock)*/
+  SerialAT.println ("AT+CCLK?");
+  delay(150);
+
+  /* Wait for response */
+  for (uint16_t i = 0; i < AT_CMD_TIMEOUT; i++)
+  {
+    delay(25);
+    if (SerialAT.available())
+    {
+      delay(50);
+      response = SerialAT.readString();
+      
+      /* Get clean date and time string (+CCLK: "21/07/30,14:17:39-12") */
+      return response.substring (AT_TIME_BEGIN, AT_TIME_END);
+    }
+  }
+  return "FAIL";  
+}
+
+/**
+ *  @brief    Set local time from GSM network
+ *  @details  Set system clock time and timezone.
+ * 
+ *  @note No daylight saving (dst) is used. 
+ */
+void setLocalTime (String dateTime)
+{
+  tm timeStruct;
+  time_t time;
+  timeval timeVal = {0, 0};       // {sec, usec}
+
+  timeStruct.tm_year = dateTime.substring(0, 2).toInt() + 100;  // Fixes year value (well known adjustment)
+  timeStruct.tm_mon  = dateTime.substring(3, 5).toInt() - 1;    // Fixes month value (well known adjustment)
+  timeStruct.tm_mday = dateTime.substring(6, 8).toInt();
+  timeStruct.tm_hour = dateTime.substring(9, 11).toInt() + 3;   // Remove GMT-3 offset to transform in UTC time (required for 'settimeofday()')
+  timeStruct.tm_min  = dateTime.substring(12, 14).toInt();
+  timeStruct.tm_sec  = dateTime.substring(15, 17).toInt();
+
+  // Serial.println (asctime(&timeStruct));
+
+  /* Get UNIX time */
+  time = mktime (&timeStruct);
+  timeVal.tv_sec = time;
+
+  /* Set system time */
+  settimeofday (&timeVal, NULL);
 }
 
 void setup()
@@ -207,10 +303,26 @@ void setup()
     modem.simUnlock(simPIN);
   }
 
-  /**
-   *  Initializes ThingSpeak client
-   */
-  ThingSpeak.begin(client);
+  /* Connect GSM Modem to APN for time synchronization */
+  SerialMon.print ("Connecting to Time Server: ");
+  SerialMon.print (apn);
+  if (!modem.gprsConnect (apn, gprsUser, gprsPass))
+  {
+    SerialMon.println (" fail");
+  }
+  else
+  {
+    /* APN connected */
+    SerialMon.println (" OK");
+
+    /* Set system time from network */
+    String time = getTimeFromGSM ();
+    setLocalTime (time);
+
+    /* Disconnect from Time Server */
+    modem.gprsDisconnect();
+    SerialMon.println (F("Time Server disconnected"));
+  }
 
   /* RTOS tasks creation to run independently. */
 
@@ -269,6 +381,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
   int type = -1;
   int len = 0;
   char data[32];
+  string dado;
   char formatted_date[64];
   time_t current_time;
   tm date;
@@ -288,8 +401,8 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     for (int i = 0; i < devicesCount; i++)
     {
       /* Check for known sensors by UUID */
-      if (foundDevices.getDevice(i).haveServiceUUID() && foundDevices.getDevice(i).isAdvertisingService(sensorUUID))
-      // if (foundDevices.getDevice(i).getServiceUUID().equals(sensorUUID))
+      if (foundDevices.getDevice(i).haveServiceUUID() &&
+          foundDevices.getDevice(i).isAdvertisingService(sensorUUID))
       {
 #ifdef DEBUG
         Serial.printf("\n");
@@ -327,9 +440,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
           switch (type)
           {
           case THIGH_SENSOR_TYPE:
-            strcpy(thighSensor.header.name, foundDevices.getDevice(i).getName().c_str());
-            strcpy(thighSensor.header.addr, foundDevices.getDevice(i).getAddress().toString().c_str());
-            strcpy(thighSensor.header.time, formatted_date);
+            thighSensor.header.name = foundDevices.getDevice(i).getName();
+            thighSensor.header.addr = foundDevices.getDevice(i).getAddress().toString();
+            thighSensor.header.time = getTime();
             thighSensor.battery = data[THIGH_BATTERY_POS];
             thighSensor.activity = ((data[THIGH_ACTIVITY_POS]) << 8) + data[THIGH_ACTIVITY_POS + 1];
             thighSensor.temperature = ((data[THIGH_TEMPERATURE_POS]) << 8) + data[THIGH_TEMPERATURE_POS + 1];
@@ -342,9 +455,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             thighSensorQueue.push (thighSensor);
 #ifdef DEBUG
             /* Print latest sample values */
-            Serial.printf("Sensor Name: %s\n", thighSensorQueue.back().header.name);
-            Serial.printf("Sensor Addr: %s\n", thighSensorQueue.back().header.addr);
-            Serial.printf("Sensor Time: %s\n", thighSensorQueue.back().header.time);
+            Serial.printf("Sensor Name: %s\n", thighSensorQueue.back().header.name.c_str());
+            Serial.printf("Sensor Addr: %s\n", thighSensorQueue.back().header.addr.c_str());
+            Serial.printf("Sensor Time: %d\n", (int) thighSensorQueue.back().header.time);
             Serial.printf("Sensor Batt: %d\n", thighSensorQueue.back().battery);
             Serial.printf("Sensor Act.: %d\n", thighSensorQueue.back().activity);
             Serial.printf("Sensor Temp: %d\n", thighSensorQueue.back().temperature);
@@ -356,9 +469,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             break;
 
           case VULVA_SENSOR_TYPE:
-            strcpy(vulvaSensor.header.name, foundDevices.getDevice(i).getName().c_str());
-            strcpy(vulvaSensor.header.addr, foundDevices.getDevice(i).getAddress().toString().c_str());
-            strcpy(vulvaSensor.header.time, formatted_date);
+            vulvaSensor.header.name = foundDevices.getDevice(i).getName();
+            vulvaSensor.header.addr = foundDevices.getDevice(i).getAddress().toString();
+            vulvaSensor.header.time = getTime();
             vulvaSensor.battery = data[VULVA_BATTERY_POS];
             vulvaSensor.dilation = ((data[VULVA_DILATION_POS]) << 8) + data[VULVA_DILATION_POS + 1];
             vulvaSensor.gap = ((data[VULVA_GAP_POS]) << 8) + data[VULVA_GAP_POS + 1];
@@ -370,9 +483,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             vulvaSensorQueue.push (vulvaSensor);
 #ifdef DEBUG
             /* Print latest sample values */
-            Serial.printf("Sensor Name: %s\n", vulvaSensorQueue.back().header.name);
-            Serial.printf("Sensor Addr: %s\n", vulvaSensorQueue.back().header.addr);
-            Serial.printf("Sensor Time: %s\n", vulvaSensorQueue.back().header.time);
+            Serial.printf("Sensor Name: %s\n", vulvaSensorQueue.back().header.name.c_str());
+            Serial.printf("Sensor Addr: %s\n", vulvaSensorQueue.back().header.addr.c_str());
+            Serial.printf("Sensor Time: %d\n", (int) vulvaSensorQueue.back().header.time);
             Serial.printf("Sensor Batt: %d\n", vulvaSensorQueue.back().battery);
             Serial.printf("Sensor Dil : %d\n", vulvaSensorQueue.back().dilation);
             Serial.printf("Sensor Gap : %d\n", vulvaSensorQueue.back().gap);
@@ -383,9 +496,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             break;
 
           case HYGRO_SENSOR_TYPE:
-            strcpy(hygroSensor.header.name, foundDevices.getDevice(i).getName().c_str());
-            strcpy(hygroSensor.header.addr, foundDevices.getDevice(i).getAddress().toString().c_str());
-            strcpy(hygroSensor.header.time, formatted_date);
+            hygroSensor.header.name = foundDevices.getDevice(i).getName();
+            hygroSensor.header.addr = foundDevices.getDevice(i).getAddress().toString();
+            hygroSensor.header.time = getTime();
             hygroSensor.battery = data[HYGRO_BATTERY_POS];
             hygroSensor.humidity = ((data[HYGRO_HUMIDITY_POS]) << 8) + data[HYGRO_HUMIDITY_POS + 1];
             hygroSensor.temperature = ((data[HYGRO_TEMPERATURE_POS]) << 8) + data[HYGRO_TEMPERATURE_POS + 1];
@@ -397,9 +510,9 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             hygroSensorQueue.push (hygroSensor);
 #ifdef DEBUG
             /* Print latest sample values */
-            Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name);
-            Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr);
-            Serial.printf("Sensor Time: %s\n", hygroSensorQueue.back().header.time);
+            Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name.c_str());
+            Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
+            Serial.printf("Sensor Time: %d\n", (int) hygroSensorQueue.back().header.time);
             Serial.printf("Sensor Batt: %d\n", hygroSensorQueue.back().battery);
             Serial.printf("Sensor Hum.: %d\n", hygroSensorQueue.back().humidity);
             Serial.printf("Sensor Temp: %d\n", hygroSensorQueue.back().temperature);
@@ -418,19 +531,18 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     // delete results from BLE Scan Buffer to release memory
     pBLEScan->clearResults();
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(14000 / portTICK_PERIOD_MS);
   }
 }
 
 /**
  *  @brief    Task to publish sensor data to cloud
- *  @details  Sends all available samples in sensor queues to cloud once every X seconds.
+ *  @details  Sends all available samples in sensor queues to cloud once every 15 seconds.
  * 
  *  @param [in] pvParameters  Not used.
  */
 void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 {
-  int ret = 0;
   thigh_sensor_data_t thighSensor;
   vulva_sensor_data_t vulvaSensor;
   hygrometer_sensor_data_t hygroSensor;
@@ -446,114 +558,115 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
     }
     else
     {
-      /* APN Connected */
+      /* APN connected */
       SerialMon.println (" OK");
 
-#ifdef PUBLISH_RANDOM_DATA
-      // Set the data host fields with random values
-      int number1 = random (0, 99);
-      int number2 = random (0, 65535);
-      int number3 = random (0, 65535);
-      int number4 = random (0, 255);
-
-      ThingSpeak.setField (1, number1);
-      ThingSpeak.setField (2, number2);
-      ThingSpeak.setField (3, number3);
-      ThingSpeak.setField (4, number4);
-
-      /* Send fields to data host channel */
-      ret = ThingSpeak.writeFields (THIGH_CHANNEL_ID, THIGH_WRITE_APIKEY);
-      if (ret == 200)
-        Serial.println ("Channel update successful.");
+      /* Connect to Server */
+      SerialMon.print("Connecting to ");
+      SerialMon.print(server);
+      if (!client.connect(server, port)) {
+        SerialMon.println(" fail");
+      }
       else
-        Serial.println ("Problem updating channel. HTTP error code " + String(ret));
-
-#else
-      /* Publishes Vulva Sensor available data */
-      while (vulvaSensorQueue.size() != 0)
       {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+        /* Server connected */
+        SerialMon.println(" OK");
 
-        /* Get and Remove sensor sample from queue */
-        vulvaSensor = vulvaSensorQueue.front();
-        vulvaSensorQueue.pop();
+        /* Publishes Thigh Sensor available data */
+        while (thighSensorQueue.size() != 0)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
-        /* Exit critical session */
-        xSemaphoreGive (SensorQueueMutex);
+          /* Get sensor sample from queue (but don't remove it) */
+          thighSensor = thighSensorQueue.front();
 
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, vulvaSensor.battery);
-        ThingSpeak.setField (2, vulvaSensor.dilation);
-        ThingSpeak.setField (3, vulvaSensor.gap);
+          /* Exit critical session */
+          xSemaphoreGive (SensorQueueMutex);
 
-        ThingSpeak.setStatus (String (vulvaSensorQueue.size(), 10));
+          /* Send HTTP Request */
+          SerialMon.println("Performing HTTP POST request...");
 
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (VULVA_CHANNEL_ID, VULVA_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Vulva sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Vulva sensor channel. HTTP error code " + String(ret));
+          HttpClient http = HttpClient (client, server, port);
+
+          /* JSON request data */
+          String httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
+                                    "\"battery\":\""     + String (thighSensor.battery)             + "\","
+                                    "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
+                                    "\"temperature\":"   + String (thighSensor.temperature)         + ","
+                                    "\"active\":"        + String (thighSensor.activity)            + ","
+                                    "\"position\":"      + String (thighSensor.position)            + ","
+                                    "\"token\":\""       + String (apiKey)                          + "\"}";
+
+          http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+          http.post (resource, "Content-Type: application/json", httpRequestBody);
+
+          SerialMon.println ();
+          SerialMon.println (httpRequestBody);
+          SerialMon.println ();
+
+          // Read the status code and body of the response
+          int statusCode = http.responseStatusCode();
+          String response = http.responseBody();
+
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+          Serial.print("Response: ");
+          Serial.println(response);
+
+          /* If transaction is successful, remove from queue */
+          if (statusCode == 201)
+          {
+            /* Enter critical session to access the queue */
+            xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+
+            /* Remove sensor sample from queue */
+            thighSensorQueue.pop();
+
+            /* Exit critical session */
+            xSemaphoreGive (SensorQueueMutex);
+          }          
+        }
+
+        /* Publishes Vulva Sensor available data */
+        while (vulvaSensorQueue.size() != 0)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+
+          /* Get and Remove sensor sample from queue */
+          vulvaSensor = vulvaSensorQueue.front();
+          vulvaSensorQueue.pop();
+
+          /* Exit critical session */
+          xSemaphoreGive (SensorQueueMutex);
+
+          /* Send HTTP Request */
+          
+
+        }
+
+        /* Publishes Hygrometer Sensor available data */
+        while (hygroSensorQueue.size() != 0)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
+          
+          /* Get and Remove sensor sample from queue */
+          hygroSensor = hygroSensorQueue.front();
+          hygroSensorQueue.pop();
+
+          /* Exit critical session */
+          xSemaphoreGive (SensorQueueMutex);
+
+          /* Send HTTP Request */
+
+        }
+        // Close client and disconnect from Server
+        client.stop();
+        SerialMon.println(F("Server disconnected"));
       }
 
-      /* Publishes Hygrometer Sensor available data */
-      while (hygroSensorQueue.size() != 0)
-      {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
-        
-        /* Get and Remove sensor sample from queue */
-        hygroSensor = hygroSensorQueue.front();
-        hygroSensorQueue.pop();
-
-        /* Exit critical session */
-        xSemaphoreGive (SensorQueueMutex);
-
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, hygroSensor.battery);
-        ThingSpeak.setField (2, hygroSensor.temperature);
-        ThingSpeak.setField (3, hygroSensor.humidity);
-
-        ThingSpeak.setStatus (String (hygroSensorQueue.size(), 10));
-
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (HYGRO_CHANNEL_ID, HYGRO_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Hygro sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Hygro sensor channel. HTTP error code " + String(ret));
-      }
-
-      /* Publishes Thigh Sensor available data */
-      while (thighSensorQueue.size() != 0)
-      {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
-
-        /* Get and Remove sensor sample from queue */
-        thighSensor = thighSensorQueue.front();
-        thighSensorQueue.pop();
-
-        /* Exit critical session */
-        xSemaphoreGive (SensorQueueMutex);
-
-        /* Set data host fields with queue values */
-        ThingSpeak.setField (1, thighSensor.battery);
-        ThingSpeak.setField (2, thighSensor.temperature);
-        ThingSpeak.setField (3, thighSensor.activity);
-        ThingSpeak.setField (4, thighSensor.position);
-
-        ThingSpeak.setStatus (String (thighSensorQueue.size(), 10));
-
-        /* Send fields to data host channel */
-        ret = ThingSpeak.writeFields (THIGH_CHANNEL_ID, THIGH_WRITE_APIKEY);
-        if (ret == 200)
-          Serial.println ("Thigh sensor channel update successful.");
-        else
-          Serial.println ("Problem updating Thigh sensor channel. HTTP error code " + String(ret));
-      }
-#endif
       /* Disconnect from APN */
       modem.gprsDisconnect();
       SerialMon.println (F("GPRS disconnected"));
