@@ -640,11 +640,14 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 #ifdef DEBUG_REQUEST          
           SerialMon.println("Performing HTTP POST request...");
 #endif
+        /* Converts temperature to floating format */
+        float temp = ((float) thighSensor.temperature) / 10;
+
         /* JSON request data */
         httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
                            "\"battery\":\""     + String (thighSensor.battery)             + "\","
                            "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
-                           "\"temperature\":"   + String (thighSensor.temperature)         + ","
+                           "\"temperature\":"   + String (temp)                            + ","
                            "\"active\":"        + String (thighSensor.activity)            + ","
                            "\"position\":"      + String (thighSensor.position)            + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
