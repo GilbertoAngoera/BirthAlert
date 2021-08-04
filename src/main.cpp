@@ -38,8 +38,6 @@ using namespace std;
 #define AT_TIME_BEGIN   10
 #define AT_TIME_END     AT_TIME_BEGIN + AT_TIME_LEN
 
-#define MAX_SENSOR_BLOCK  3
-
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
 #define BLINK_GPIO GPIO_NUM_13
 
@@ -546,7 +544,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 }
 
 /**
- *  @brief    Task to publish sensor data to cloud
+ *  @brief    Task to publish sensor data and keep-alive to cloud
  *  @details  Sends all available samples in sensor queues to cloud once every 15 seconds.
  * 
  *  @param [in] pvParameters  Not used.
@@ -559,7 +557,6 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   String httpRequestBody;
   String response;
   int statusCode = 0;
-  int sensorBlock = MAX_SENSOR_BLOCK;
 
   /* Creates the HTTP client */
   HttpClient http = HttpClient (client, server, port);
@@ -591,11 +588,43 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
     while (1)
     {
-      /* Init sensor sample counter */
-      sensorBlock = MAX_SENSOR_BLOCK;
+      /*
+       *  Publishes Keep-Alive  
+       */
+#ifdef DEBUG_REQUEST        
+      SerialMon.println("Performing Keep-Alive request...");
+#endif        
+      /* Get local MacAddress */
+      BLEAddress addr = BLEDevice::getAddress();
 
-      /* Publishes Thigh Sensor available data (in blocks of maximun size to allow other sensor types to be published */
-      while ((thighSensorQueue.size() != 0) && (sensorBlock <= MAX_SENSOR_BLOCK))
+      /* JSON request data */
+      httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
+                         "\"timeStamp\":"        + String (getTime())               + ","
+                         "\"sensorsConected\":"  + String (0)                       + ","
+                         "\"token\":\""          + String (apiKey)                  + "\"}";
+
+      http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+      http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
+
+#ifdef DEBUG_REQUEST
+      SerialMon.println();
+      SerialMon.println(httpRequestBody);
+      SerialMon.println();
+#endif
+      // Read the status code and body of the response
+      statusCode = http.responseStatusCode();
+      response = http.responseBody();
+
+#ifdef DEBUG_REQUEST
+      Serial.print("Status code: ");
+      Serial.println(statusCode);
+      Serial.print("Response: ");
+      Serial.println(response);
+#endif
+      /**
+       *  Publish available Thigh Sensor data
+       */
+      while (thighSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -649,13 +678,11 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Exit critical session */
           xSemaphoreGive(SensorQueueMutex);
         }
-        /* Increment sample counter */
-        sensorBlock++;
       }
-      /* Reinit sensor sample counter */
-      sensorBlock = MAX_SENSOR_BLOCK;
 
-      /* Publishes Vulva Sensor available data */
+      /*
+       *  Publishes available Vulva Sensor data
+       */
       while (vulvaSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
@@ -671,7 +698,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Send HTTP Request */
       }
 
-      /* Publishes Hygrometer Sensor available data */
+      /*
+       *  Publishes available Hygrometer Sensor data
+       */
       while (hygroSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
@@ -687,38 +716,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Send HTTP Request */
       }
 
-      /* Send Keep-Alive request */
-#ifdef DEBUG_REQUEST        
-      SerialMon.println("Performing HTTP POST request...");
-#endif        
 
-        /* Get local MacAddress */
-      BLEAddress addr = BLEDevice::getAddress();
-
-      /* JSON request data */
-      httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
-                         "\"timeStamp\":"        + String (getTime())               + ","
-                         "\"sensorsConected\":"  + String (0)                       + ","
-                         "\"token\":\""          + String (apiKey)                  + "\"}";
-
-      http.sendHeader ("Content-Length", String(httpRequestBody.length()));
-      http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
-
-#ifdef DEBUG_REQUEST
-      SerialMon.println();
-      SerialMon.println(httpRequestBody);
-      SerialMon.println();
-#endif
-      // Read the status code and body of the response
-      statusCode = http.responseStatusCode();
-      response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-      Serial.print("Status code: ");
-      Serial.println(statusCode);
-      Serial.print("Response: ");
-      Serial.println(response);
-#endif
       /* Reconnect to network when necessary */
       if (!modem.isNetworkConnected())
       {
