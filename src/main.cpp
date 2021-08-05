@@ -604,7 +604,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                          "\"sensorsConected\":"  + String (0)                       + ","
                          "\"token\":\""          + String (apiKey)                  + "\"}";
 
-      http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+      http.sendHeader ("Content-Length", httpRequestBody.length());
       http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
