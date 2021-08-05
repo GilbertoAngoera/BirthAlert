@@ -44,9 +44,9 @@ using namespace std;
 #define BLINK_GPIO GPIO_NUM_13
 
 /* Global queues to store sensor samples */
-deque<thigh_sensor_data_t> thighSensorQueue (MAX_SENSOR_SAMPLES);
-deque<vulva_sensor_data_t> vulvaSensorQueue (MAX_SENSOR_SAMPLES);
-deque<hygrometer_sensor_data_t> hygroSensorQueue (MAX_SENSOR_SAMPLES);
+deque<thigh_sensor_data_t> thighSensorQueue;
+deque<vulva_sensor_data_t> vulvaSensorQueue;
+deque<hygrometer_sensor_data_t> hygroSensorQueue;
 
 /* Mutex to protect the shared queues access */
 SemaphoreHandle_t SensorQueueMutex;
@@ -633,6 +633,11 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Open request list string */
         httpRequestBody = "{";
 
+        /* Send HTTP Request */
+ #ifdef DEBUG_REQUEST          
+        SerialMon.println("Performing HTTP POST request...");
+ #endif
+
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
@@ -642,10 +647,6 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           /* Get sensor sample from queue (but don't remove it) */
           thighSensor = thighSensorQueue[i];
 
-          /* Send HTTP Request */
- #ifdef DEBUG_REQUEST          
-            SerialMon.println("Performing HTTP POST request...");
- #endif
           /* Converts temperature to floating format */
           float temp = ((float) thighSensor.temperature) / 10;
 
@@ -656,16 +657,21 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                                   "\"temperature\":"   + String (temp)                            + ","
                                   "\"active\":"        + String (thighSensor.activity)            + ","
                                   "\"position\":"      + String (thighSensor.position)            + ","
-                                  "\"token\":\""       + String (apiKey)                          + "\"},"
-          );
+                                  "\"token\":\""       + String (apiKey)                          + "\"}"
+                                  );
+          /* Separates sensors data with comma (not at the end) */                        
+          if ((queueSize > 1) && (i < (queueSize - 1)))
+          {
+            httpRequestBody.concat (",");
+          } 
         }
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
 
         /* Closes request list string */
-        httpRequestBody = "}";
+        httpRequestBody.concat ("}");
 
-        http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+        http.sendHeader ("Content-Length", httpRequestBody.length());
         http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
