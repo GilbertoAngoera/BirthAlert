@@ -692,14 +692,54 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get and Remove sensor sample from queue */
+        /* Get sensor sample from queue (but don't remove it) */
         vulvaSensor = vulvaSensorQueue.front();
-        vulvaSensorQueue.pop();
 
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
 
         /* Send HTTP Request */
+#ifdef DEBUG_REQUEST          
+          SerialMon.println("Performing HTTP POST request...");
+#endif
+        /* JSON request data */
+        httpRequestBody = "{\"macAddress\":\""  + String (vulvaSensor.header.addr.c_str()) + "\","
+                           "\"battery\":\""     + String (vulvaSensor.battery)             + "\","
+                           "\"timeStamp\":"     + String (vulvaSensor.header.time)         + ","
+                           "\"dilation\":"      + String (vulvaSensor.dilation)            + ","
+                           "\"gap\":"           + String (vulvaSensor.gap)                 + ","
+                           "\"token\":\""       + String (apiKey)                          + "\"}";
+
+        http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+        http.post (endpointVulvaSensor, "Content-Type: application/json", httpRequestBody);
+
+#ifdef DEBUG_REQUEST
+        SerialMon.println();
+        SerialMon.println(httpRequestBody);
+        SerialMon.println();
+#endif
+        // Read the status code and body of the response
+        statusCode = http.responseStatusCode();
+        response = http.responseBody();
+
+#ifdef DEBUG_REQUEST
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        Serial.print("Response: ");
+        Serial.println(response);
+#endif
+        /* If transaction is successful, remove from queue */
+        if (statusCode == 201)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+          /* Remove sensor sample from queue */
+          vulvaSensorQueue.pop();
+
+          /* Exit critical session */
+          xSemaphoreGive(SensorQueueMutex);
+        }
       }
 
       /*
@@ -721,7 +761,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       }
 
 
-      /* Reconnect to network when necessary */
+      /* Reconnect when network is down */
       if (!modem.isNetworkConnected())
       {
         if (!modem.gprsConnect(apn, gprsUser, gprsPass))
