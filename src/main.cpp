@@ -33,6 +33,8 @@ using namespace std;
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
+#define MAX_SENSOR_SAMPLES    512
+
 #define AT_CMD_TIMEOUT  1200
 #define AT_TIME_LEN     17
 #define AT_TIME_BEGIN   10
@@ -42,9 +44,9 @@ using namespace std;
 #define BLINK_GPIO GPIO_NUM_13
 
 /* Global queues to store sensor samples */
-queue<thigh_sensor_data_t> thighSensorQueue;
-queue<vulva_sensor_data_t> vulvaSensorQueue;
-queue<hygrometer_sensor_data_t> hygroSensorQueue;
+deque<thigh_sensor_data_t> thighSensorQueue (MAX_SENSOR_SAMPLES);
+deque<vulva_sensor_data_t> vulvaSensorQueue (MAX_SENSOR_SAMPLES);
+deque<hygrometer_sensor_data_t> hygroSensorQueue (MAX_SENSOR_SAMPLES);
 
 /* Mutex to protect the shared queues access */
 SemaphoreHandle_t SensorQueueMutex;
@@ -457,7 +459,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
             /* Stores sensor sample on queue */
-            thighSensorQueue.push (thighSensor);
+            thighSensorQueue.push_back (thighSensor);
 #ifdef DEBUG
             /* Print latest sample values */
             Serial.printf("Sensor Name: %s\n", thighSensorQueue.back().header.name.c_str());
@@ -486,7 +488,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
             /* Stores sensor sample on queue */
-            vulvaSensorQueue.push (vulvaSensor);
+            vulvaSensorQueue.push_back (vulvaSensor);
 #ifdef DEBUG
 
             /* Print latest sample values */
@@ -515,7 +517,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
 
             /* Stores sensor sample on queue */
-            hygroSensorQueue.push (hygroSensor);
+            hygroSensorQueue.push_back (hygroSensor);
 #ifdef DEBUG
             /* Print latest sample values */
             Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name.c_str());
@@ -625,32 +627,43 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       /**
        *  Publish available Thigh Sensor data
        */
-      while (thighSensorQueue.size() != 0)
+      size_t queueSize = thighSensorQueue.size();
+      if (queueSize != 0)
       {
+        /* Open request list string */
+        httpRequestBody = "{";
+
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get sensor sample from queue (but don't remove it) */
-        thighSensor = thighSensorQueue.front();
+        /* Loop to mount the request list */
+        for (int i = 0; i < queueSize; i++)
+        {
+          /* Get sensor sample from queue (but don't remove it) */
+          thighSensor = thighSensorQueue[i];
 
+          /* Send HTTP Request */
+ #ifdef DEBUG_REQUEST          
+            SerialMon.println("Performing HTTP POST request...");
+ #endif
+          /* Converts temperature to floating format */
+          float temp = ((float) thighSensor.temperature) / 10;
+
+          /* Add JSON request data to list body */
+          httpRequestBody.concat ("{\"macAddress\":\"" + String (thighSensor.header.addr.c_str()) + "\","
+                                  "\"battery\":\""     + String (thighSensor.battery)             + "\","
+                                  "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
+                                  "\"temperature\":"   + String (temp)                            + ","
+                                  "\"active\":"        + String (thighSensor.activity)            + ","
+                                  "\"position\":"      + String (thighSensor.position)            + ","
+                                  "\"token\":\""       + String (apiKey)                          + "\"},"
+          );
+        }
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
 
-        /* Send HTTP Request */
-#ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing HTTP POST request...");
-#endif
-        /* Converts temperature to floating format */
-        float temp = ((float) thighSensor.temperature) / 10;
-
-        /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
-                           "\"battery\":\""     + String (thighSensor.battery)             + "\","
-                           "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
-                           "\"temperature\":"   + String (temp)                            + ","
-                           "\"active\":"        + String (thighSensor.activity)            + ","
-                           "\"position\":"      + String (thighSensor.position)            + ","
-                           "\"token\":\""       + String (apiKey)                          + "\"}";
+        /* Closes request list string */
+        httpRequestBody = "}";
 
         http.sendHeader ("Content-Length", String(httpRequestBody.length()));
         http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
@@ -677,7 +690,10 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
           /* Remove sensor sample from queue */
-          thighSensorQueue.pop();
+          for (int i = 0; i < queueSize; i++)
+          {
+            thighSensorQueue.pop_front();
+          }
 
           /* Exit critical session */
           xSemaphoreGive(SensorQueueMutex);
@@ -694,7 +710,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
         /* Get and Remove sensor sample from queue */
         vulvaSensor = vulvaSensorQueue.front();
-        vulvaSensorQueue.pop();
+        vulvaSensorQueue.pop_front();
 
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
@@ -712,14 +728,13 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
         /* Get and Remove sensor sample from queue */
         hygroSensor = hygroSensorQueue.front();
-        hygroSensorQueue.pop();
+        hygroSensorQueue.pop_front();
 
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
 
         /* Send HTTP Request */
       }
-
 
       /* Reconnect to network when necessary */
       if (!modem.isNetworkConnected())
@@ -753,9 +768,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 }
 
  /**
- *  @brief    Task intended just to monitoring application behavior
- *  @details  None.
- */
+  *  @brief    Task intended just to monitoring application behavior
+  *  @details  None.
+  */
  void UI_Task(void *pvParameters __attribute__((unused))) // This is a Task.
  {
     /* Configure the IOMUX register for pad BLINK_GPIO (some pads are
