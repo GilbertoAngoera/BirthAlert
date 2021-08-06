@@ -641,13 +641,13 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           SerialMon.println("Performing Thigh Sensor request...");
 #endif
         /* Converts temperature to floating format */
-        float temp = ((float) thighSensor.temperature) / 10;
+        float temperature = ((float) thighSensor.temperature) / 10;
 
         /* JSON request data */
         httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
                            "\"battery\":\""     + String (thighSensor.battery)             + "\","
                            "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
-                           "\"temperature\":"   + String (temp)                            + ","
+                           "\"temperature\":"   + String (temperature)                     + ","
                            "\"active\":"        + String (thighSensor.activity)            + ","
                            "\"position\":"      + String (thighSensor.position)            + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
@@ -760,15 +760,16 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 #ifdef DEBUG_REQUEST          
           SerialMon.println("Performing Hygro Sensor request...");
 #endif
-        /* Converts temperature to floating format */
-        float temp = ((float) hygroSensor.temperature) / 10;
+        /* Converts humidity and temperature to floating format */
+        float temperature = ((float) hygroSensor.temperature) / 10;
+        float humidity = ((float) hygroSensor.humidity) / 10;
 
         /* JSON request data */
         httpRequestBody = "{\"macAddress\":\""      + String (hygroSensor.header.addr.c_str()) + "\","
                            "\"battery\":\""         + String (hygroSensor.battery)             + "\","
                            "\"timeStamp\":"         + String (hygroSensor.header.time)         + ","
-                           "\"temp_environment\":"  + String (temp)                            + ","
-                           "\"humidity\":"          + String (hygroSensor.humidity)            + ","
+                           "\"temp_environment\":"  + String (temperature)                     + ","
+                           "\"humidity\":"          + String (humidity)                        + ","
                            "\"token\":\""           + String (apiKey)                          + "\"}";
 
         http.sendHeader ("Content-Length", httpRequestBody.length());
