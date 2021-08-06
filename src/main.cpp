@@ -140,9 +140,12 @@ TinyGsmClient client (modem);
 #define IP5306_REG_SYS_CTL0 0x00
 
 /* Prototypes */
-void Sensor_Task(void *pvParameters);
-void Cloud_Task(void *pvParameters);
-void UI_Task(void *pvParameters);
+void Sensor_Task (void *pvParameters);
+void Publish_KeepAlive_Task (void *pvParameters);
+void Publish_Thigh_Sensor_Task (void *pvParameters);
+void Publish_Vulva_Sensor_Task (void *pvParameters);
+void Publish_Hygro_Sensor_Task (void *pvParameters);
+void UI_Task (void *pvParameters);
 
 
 bool setPowerBoostKeepOn(int en)
@@ -307,27 +310,37 @@ void setup()
   {
     modem.simUnlock(simPIN);
   }
-
-  /* Connect GSM Modem to APN for time synchronization */
-  SerialMon.print ("Connecting to Time Server: ");
-  SerialMon.print (apn);
-  if (!modem.gprsConnect (apn, gprsUser, gprsPass))
+  
+  /* Connect to APN */
+  SerialMon.print("Connecting to APN: ");
+  SerialMon.print(apn);
+  if (!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
-    SerialMon.println (" fail");
+    SerialMon.println(" fail");
   }
   else
   {
     /* APN connected */
-    SerialMon.println (" OK");
+    SerialMon.println(" OK");
 
-    /* Set system time from network */
-    String time = getTimeFromGSM ();
-    setLocalTime (time);
+    /* Connect to Server */
+    SerialMon.print("Connecting to ");
+    SerialMon.print(server);
+    if (!client.connect(server, port))
+    {
+      SerialMon.println(" fail");
+    }
+    else
+    {
+      /* Server connected */
+      SerialMon.println(" OK");
 
-    /* Disconnect from Time Server */
-    modem.gprsDisconnect();
-    SerialMon.println (F("Time Server disconnected"));
+      /* Set system time from network */
+      String time = getTimeFromGSM ();
+      setLocalTime (time);
+    }
   }
+
 
   /* RTOS tasks creation to run independently. */
 
@@ -338,12 +351,33 @@ void setup()
                           ,NULL
                           ,0);  //Task Handle
 
-  xTaskCreatePinnedToCore (Cloud_Task, "Cloud Task" // A name just for humans
+  xTaskCreatePinnedToCore (Publish_KeepAlive_Task, "Cloud Task" // A name just for humans
                           ,8192 // Stack size
                           ,NULL //Parameters for the task
                           ,1    // Priority
                           ,NULL
                           ,1);  //Task Handle
+
+  xTaskCreatePinnedToCore (Publish_Thigh_Sensor_Task, "Publish Thigh Sensor Task" // A name just for humans
+                          ,8192 // Stack size
+                          ,NULL //Parameters for the task
+                          ,1    // Priority
+                          ,NULL
+                          ,1);  //Task Handle
+
+  xTaskCreatePinnedToCore (Publish_Vulva_Sensor_Task, "Publish Vulva Sensor Task" // A name just for humans
+                          ,8192 // Stack size
+                          ,NULL //Parameters for the task
+                          ,1    // Priority
+                          ,NULL
+                          ,1);  //Task Handle                                                 
+  
+  xTaskCreatePinnedToCore (Publish_Hygro_Sensor_Task, "Publish Hygro Sensor Task" // A name just for humans
+                          ,8192 // Stack size
+                          ,NULL //Parameters for the task
+                          ,1    // Priority
+                          ,NULL
+                          ,1);  //Task Handle  
 
   xTaskCreatePinnedToCore (UI_Task, "UI Task" // A name just for humans
                           ,2048 // Stack size
@@ -545,293 +579,82 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 }
 
 /**
- *  @brief    Task to publish sensor data and keep-alive to cloud
- *  @details  Sends all available samples in sensor queues to cloud once every 15 seconds.
+ *  @brief  Task to publish keep-alive data to cloud
  * 
  *  @param [in] pvParameters  Not used.
  */
-void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
+void Publish_KeepAlive_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 {
-  thigh_sensor_data_t thighSensor;
-  vulva_sensor_data_t vulvaSensor;
-  hygrometer_sensor_data_t hygroSensor;
   String httpRequestBody;
   String response;
   int statusCode = 0;
 
   /* Creates the HTTP client */
-  HttpClient http = HttpClient (client, server, port);
+  HttpClient http = HttpClient(client, server, port);
 
-  /* Connect to APN */
-  SerialMon.print("Connecting to APN: ");
-  SerialMon.print(apn);
-  if (!modem.gprsConnect(apn, gprsUser, gprsPass))
+  while (1)
   {
-    SerialMon.println(" fail");
-  }
-  else
-  {
-    /* APN connected */
-    SerialMon.println(" OK");
-
-    /* Connect to Server */
-    SerialMon.print("Connecting to ");
-    SerialMon.print(server);
-    if (!client.connect(server, port))
-    {
-      SerialMon.println(" fail");
-    }
-    else
-    {
-      /* Server connected */
-      SerialMon.println(" OK");
-    }
-
-    while (1)
-    {
-      /*
+    /*
        *  Publishes Keep-Alive  
        */
-#ifdef DEBUG_REQUEST        
-      SerialMon.println("Performing Keep-Alive request...");
-#endif        
-      /* Get local MacAddress */
-      BLEAddress addr = BLEDevice::getAddress();
+#ifdef DEBUG_REQUEST
+    SerialMon.println("Performing Keep-Alive request...");
+#endif
+    /* Get local MacAddress */
+    BLEAddress addr = BLEDevice::getAddress();
 
-      /* JSON request data */
-      httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
-                         "\"timeStamp\":"        + String (getTime())               + ","
-                         "\"sensorsConected\":"  + String (0)                       + ","
-                         "\"token\":\""          + String (apiKey)                  + "\"}";
+    /* JSON request data */
+    httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
+                       "\"timeStamp\":"        + String (getTime())               + ","
+                       "\"sensorsConected\":"  + String (0)                       + ","
+                       "\"token\":\""          + String (apiKey)                  + "\"}";
 
-      http.sendHeader ("Content-Length", httpRequestBody.length());
-      http.post (endpointKeepAlive, "application/json", httpRequestBody);
+    http.sendHeader("Content-Length", httpRequestBody.length());
+    http.post(endpointKeepAlive, "application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
-      SerialMon.println();
-      SerialMon.println(httpRequestBody);
-      SerialMon.println();
+    SerialMon.println();
+    SerialMon.println(httpRequestBody);
+    SerialMon.println();
 #endif
-      // Read the status code and body of the response
-      statusCode = http.responseStatusCode();
-      response = http.responseBody();
+    // Read the status code and body of the response
+    statusCode = http.responseStatusCode();
+    response = http.responseBody();
 
 #ifdef DEBUG_REQUEST
-      Serial.print("Status code: ");
-      Serial.println(statusCode);
-      Serial.print("Response: ");
-      Serial.println(response);
+    Serial.print("Status code: ");
+    Serial.println(statusCode);
+    Serial.print("Response: ");
+    Serial.println(response);
 #endif
-      /**
-       *  Publish available Thigh Sensor data
-       */
-      if (thighSensorQueue.size() != 0)
+
+    /* Reconnect when network is down */
+    if (!modem.isNetworkConnected())
+    {
+      if (!modem.gprsConnect(apn, gprsUser, gprsPass))
       {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
-
-        /* Get sensor sample from queue (but don't remove it) */
-        thighSensor = thighSensorQueue.front();
-
-        /* Exit critical session */
-        xSemaphoreGive(SensorQueueMutex);
-
-        /* Send HTTP Request */
-#ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing Thigh Sensor request...");
-#endif
-        /* Converts temperature to floating format */
-        float temperature = ((float) thighSensor.temperature) / 10;
-
-        /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
-                           "\"battery\":\""     + String (thighSensor.battery)             + "\","
-                           "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
-                           "\"temperature\":"   + String (temperature)                     + ","
-                           "\"active\":"        + String (thighSensor.activity)            + ","
-                           "\"position\":"      + String (thighSensor.position)            + ","
-                           "\"token\":\""       + String (apiKey)                          + "\"}";
-
-        http.sendHeader ("Content-Length", httpRequestBody.length());
-        http.post (endpointThighSensor, "application/json", httpRequestBody);
-
-#ifdef DEBUG_REQUEST
-        SerialMon.println();
-        SerialMon.println(httpRequestBody);
-        SerialMon.println();
-#endif
-        // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
-#endif
-        /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
-
-          /* Remove sensor sample from queue */
-          thighSensorQueue.pop();
-
-          /* Exit critical session */
-          xSemaphoreGive(SensorQueueMutex);
-        }
+        SerialMon.println(" fail");
       }
-
-      /*
-       *  Publishes available Vulva Sensor data
-       */
-      if (vulvaSensorQueue.size() != 0)
+      else
       {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+        /* APN connected */
+        SerialMon.println(" OK");
 
-        /* Get sensor sample from queue (but don't remove it) */
-        vulvaSensor = vulvaSensorQueue.front();
-
-        /* Exit critical session */
-        xSemaphoreGive(SensorQueueMutex);
-
-        /* Send HTTP Request */
-#ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing Vulva Sensor request...");
-#endif
-        /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""  + String (vulvaSensor.header.addr.c_str()) + "\","
-                           "\"battery\":\""     + String (vulvaSensor.battery)             + "\","
-                           "\"timeStamp\":"     + String (vulvaSensor.header.time)         + ","
-                           "\"dilation\":"      + String (vulvaSensor.dilation)            + ","
-                           "\"gap\":"           + String (vulvaSensor.gap)                 + ","
-                           "\"token\":\""       + String (apiKey)                          + "\"}";
-
-        http.sendHeader ("Content-Length", httpRequestBody.length());
-        http.post (endpointVulvaSensor, "application/json", httpRequestBody);
-
-#ifdef DEBUG_REQUEST
-        SerialMon.println();
-        SerialMon.println(httpRequestBody);
-        SerialMon.println();
-#endif
-        // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
-#endif
-        /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
-
-          /* Remove sensor sample from queue */
-          vulvaSensorQueue.pop();
-
-          /* Exit critical session */
-          xSemaphoreGive(SensorQueueMutex);
-        }
-      }
-
-      /*
-       *  Publishes available Hygrometer Sensor data
-       */
-      if (hygroSensorQueue.size() != 0)
-      {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
-
-        /* Get sensor sample from queue (but don't remove it) */
-        hygroSensor = hygroSensorQueue.front();
-
-        /* Exit critical session */
-        xSemaphoreGive(SensorQueueMutex);
-
-        /* Send HTTP Request */
-#ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing Hygro Sensor request...");
-#endif
-        /* Converts humidity and temperature to floating format */
-        float temperature = ((float) hygroSensor.temperature) / 10;
-        float humidity = ((float) hygroSensor.humidity) / 10;
-
-        /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""      + String (hygroSensor.header.addr.c_str()) + "\","
-                           "\"battery\":\""         + String (hygroSensor.battery)             + "\","
-                           "\"timeStamp\":"         + String (hygroSensor.header.time)         + ","
-                           "\"temp_environment\":"  + String (temperature)                     + ","
-                           "\"humidity\":"          + String (humidity)                        + ","
-                           "\"token\":\""           + String (apiKey)                          + "\"}";
-
-        http.sendHeader ("Content-Length", httpRequestBody.length());
-        http.post (endpointHygroSensor, "application/json", httpRequestBody);
-
-#ifdef DEBUG_REQUEST
-        SerialMon.println();
-        SerialMon.println(httpRequestBody);
-        SerialMon.println();
-#endif
-        // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
-#endif
-        /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
-
-          /* Remove sensor sample from queue */
-          hygroSensorQueue.pop();
-
-          /* Exit critical session */
-          xSemaphoreGive(SensorQueueMutex);
-        }
-      }
-
-      /* Reconnect when network is down */
-      if (!modem.isNetworkConnected())
-      {
-        if (!modem.gprsConnect(apn, gprsUser, gprsPass))
+        /* Connect to Server */
+        SerialMon.print("Connecting to ");
+        SerialMon.print(server);
+        if (!client.connect(server, port))
         {
           SerialMon.println(" fail");
         }
         else
         {
-          /* APN connected */
+          /* Server connected */
           SerialMon.println(" OK");
-
-          /* Connect to Server */
-          SerialMon.print("Connecting to ");
-          SerialMon.print(server);
-          if (!client.connect(server, port))
-          {
-            SerialMon.println(" fail");
-          }
-          else
-          {
-            /* Server connected */
-            SerialMon.println(" OK");
-          }
         }
       }
-      vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
+    vTaskDelay(30000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -863,7 +686,234 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
     }
   }
 
-  void loop()
+void Publish_Thigh_Sensor_Task (void *pvParameters __attribute__((unused)))
+{
+  thigh_sensor_data_t thighSensor;
+  String httpRequestBody;
+  String response;
+  int statusCode = 0;
+
+  /* Creates the HTTP client */
+  HttpClient http = HttpClient (client, server, port);
+
+  while (1)
   {
-    // Empty. Things are done in Tasks.
+    /**
+     *  Publish available Thigh Sensor data
+     */
+    if (thighSensorQueue.size() != 0)
+    {
+      /* Enter critical session to access the queue */
+      xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+      /* Get sensor sample from queue (but don't remove it) */
+      thighSensor = thighSensorQueue.front();
+
+      /* Exit critical session */
+      xSemaphoreGive(SensorQueueMutex);
+
+      /* Send HTTP Request */
+#ifdef DEBUG_REQUEST
+      SerialMon.println("Performing Thigh Sensor request...");
+#endif
+      /* Converts temperature to floating format */
+      float temperature = ((float)thighSensor.temperature) / 10;
+
+      /* JSON request data */
+      httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
+                         "\"battery\":\""     + String (thighSensor.battery)             + "\","
+                         "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
+                         "\"temperature\":"   + String (temperature)                     + ","
+                         "\"active\":"        + String (thighSensor.activity)            + ","
+                         "\"position\":"      + String (thighSensor.position)            + ","
+                         "\"token\":\""       + String (apiKey)                          + "\"}";
+
+      http.sendHeader("Content-Length", httpRequestBody.length());
+      http.post(endpointThighSensor, "application/json", httpRequestBody);
+
+#ifdef DEBUG_REQUEST
+      SerialMon.println();
+      SerialMon.println(httpRequestBody);
+      SerialMon.println();
+#endif
+      // Read the status code and body of the response
+      statusCode = http.responseStatusCode();
+      response = http.responseBody();
+
+#ifdef DEBUG_REQUEST
+      Serial.print("Status code: ");
+      Serial.println(statusCode);
+      Serial.print("Response: ");
+      Serial.println(response);
+#endif
+      /* If transaction is successful, remove from queue */
+      if (statusCode == 201)
+      {
+        /* Enter critical session to access the queue */
+        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+        /* Remove sensor sample from queue */
+        thighSensorQueue.pop();
+
+        /* Exit critical session */
+        xSemaphoreGive(SensorQueueMutex);
+      }
+    }
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
+}
+
+void Publish_Vulva_Sensor_Task (void *pvParameters __attribute__((unused)))
+{
+  vulva_sensor_data_t vulvaSensor;
+  String httpRequestBody;
+  String response;
+  int statusCode = 0;
+
+  /* Creates the HTTP client */
+  HttpClient http = HttpClient(client, server, port);
+
+  while (1)
+  {
+    /*
+     *  Publishes available Vulva Sensor data
+     */
+    if (vulvaSensorQueue.size() != 0)
+    {
+      /* Enter critical session to access the queue */
+      xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+      /* Get sensor sample from queue (but don't remove it) */
+      vulvaSensor = vulvaSensorQueue.front();
+
+      /* Exit critical session */
+      xSemaphoreGive(SensorQueueMutex);
+
+      /* Send HTTP Request */
+#ifdef DEBUG_REQUEST
+      SerialMon.println("Performing Vulva Sensor request...");
+#endif
+      /* JSON request data */
+      httpRequestBody = "{\"macAddress\":\""  + String (vulvaSensor.header.addr.c_str()) + "\","
+                         "\"battery\":\""     + String (vulvaSensor.battery)             + "\","
+                         "\"timeStamp\":"     + String (vulvaSensor.header.time)         + ","
+                         "\"dilation\":"      + String (vulvaSensor.dilation)            + ","
+                         "\"gap\":"           + String (vulvaSensor.gap)                 + ","
+                         "\"token\":\""       + String (apiKey)                          + "\"}";
+
+      http.sendHeader("Content-Length", httpRequestBody.length());
+      http.post(endpointVulvaSensor, "application/json", httpRequestBody);
+
+#ifdef DEBUG_REQUEST
+      SerialMon.println();
+      SerialMon.println(httpRequestBody);
+      SerialMon.println();
+#endif
+      // Read the status code and body of the response
+      statusCode = http.responseStatusCode();
+      response = http.responseBody();
+
+#ifdef DEBUG_REQUEST
+      Serial.print("Status code: ");
+      Serial.println(statusCode);
+      Serial.print("Response: ");
+      Serial.println(response);
+#endif
+      /* If transaction is successful, remove from queue */
+      if (statusCode == 201)
+      {
+        /* Enter critical session to access the queue */
+        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+        /* Remove sensor sample from queue */
+        vulvaSensorQueue.pop();
+
+        /* Exit critical session */
+        xSemaphoreGive(SensorQueueMutex);
+      }
+    }
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+void Publish_Hygro_Sensor_Task (void *pvParameters __attribute__((unused)))
+{
+  hygrometer_sensor_data_t hygroSensor;
+  String httpRequestBody;
+  String response;
+  int statusCode = 0;
+
+  /* Creates the HTTP client */
+  HttpClient http = HttpClient(client, server, port);
+
+  while (1)
+  {
+    /*
+     *  Publishes available Hygrometer Sensor data
+     */
+    if (hygroSensorQueue.size() != 0)
+    {
+      /* Enter critical session to access the queue */
+      xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+      /* Get sensor sample from queue (but don't remove it) */
+      hygroSensor = hygroSensorQueue.front();
+
+      /* Exit critical session */
+      xSemaphoreGive(SensorQueueMutex);
+
+      /* Send HTTP Request */
+#ifdef DEBUG_REQUEST
+      SerialMon.println("Performing Hygro Sensor request...");
+#endif
+      /* Converts humidity and temperature to floating format */
+      float temperature = ((float)hygroSensor.temperature) / 10;
+      float humidity = ((float)hygroSensor.humidity) / 10;
+
+      /* JSON request data */
+      httpRequestBody = "{\"macAddress\":\""      + String (hygroSensor.header.addr.c_str()) + "\","
+                         "\"battery\":\""         + String (hygroSensor.battery)             + "\","
+                         "\"timeStamp\":"         + String (hygroSensor.header.time)         + ","
+                         "\"temp_environment\":"  + String (temperature)                     + ","
+                         "\"humidity\":"          + String (humidity)                        + ","
+                         "\"token\":\""           + String (apiKey)                          + "\"}";
+
+      http.sendHeader("Content-Length", httpRequestBody.length());
+      http.post(endpointHygroSensor, "application/json", httpRequestBody);
+
+#ifdef DEBUG_REQUEST
+      SerialMon.println();
+      SerialMon.println(httpRequestBody);
+      SerialMon.println();
+#endif
+      // Read the status code and body of the response
+      statusCode = http.responseStatusCode();
+      response = http.responseBody();
+
+#ifdef DEBUG_REQUEST
+      Serial.print("Status code: ");
+      Serial.println(statusCode);
+      Serial.print("Response: ");
+      Serial.println(response);
+#endif
+      /* If transaction is successful, remove from queue */
+      if (statusCode == 201)
+      {
+        /* Enter critical session to access the queue */
+        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+        /* Remove sensor sample from queue */
+        hygroSensorQueue.pop();
+
+        /* Exit critical session */
+        xSemaphoreGive(SensorQueueMutex);
+      }
+    }
+    vTaskDelay(15000 / portTICK_PERIOD_MS);
+  }
+}
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}
