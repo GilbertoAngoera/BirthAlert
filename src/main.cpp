@@ -605,7 +605,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                          "\"token\":\""          + String (apiKey)                  + "\"}";
 
       http.sendHeader ("Content-Length", httpRequestBody.length());
-      http.post (endpointKeepAlive, "Content-Type: application/json", httpRequestBody);
+      http.post (endpointKeepAlive, "application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
       SerialMon.println();
@@ -625,7 +625,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       /**
        *  Publish available Thigh Sensor data
        */
-      while (thighSensorQueue.size() != 0)
+      if (thighSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -638,7 +638,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
         /* Send HTTP Request */
 #ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing HTTP POST request...");
+          SerialMon.println("Performing Thigh Sensor request...");
 #endif
         /* Converts temperature to floating format */
         float temp = ((float) thighSensor.temperature) / 10;
@@ -653,7 +653,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
         http.sendHeader ("Content-Length", httpRequestBody.length());
-        http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
+        http.post (endpointThighSensor, "application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
@@ -687,7 +687,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       /*
        *  Publishes available Vulva Sensor data
        */
-      while (vulvaSensorQueue.size() != 0)
+      if (vulvaSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -700,7 +700,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
         /* Send HTTP Request */
 #ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing HTTP POST request...");
+          SerialMon.println("Performing Vulva Sensor request...");
 #endif
         /* JSON request data */
         httpRequestBody = "{\"macAddress\":\""  + String (vulvaSensor.header.addr.c_str()) + "\","
@@ -711,7 +711,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
         http.sendHeader ("Content-Length", httpRequestBody.length());
-        http.post (endpointVulvaSensor, "Content-Type: application/json", httpRequestBody);
+        http.post (endpointVulvaSensor, "application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
@@ -745,7 +745,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       /*
        *  Publishes available Hygrometer Sensor data
        */
-      while (hygroSensorQueue.size() != 0)
+      if (hygroSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -758,7 +758,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 
         /* Send HTTP Request */
 #ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing HTTP POST request...");
+          SerialMon.println("Performing Hygro Sensor request...");
 #endif
         /* Converts temperature to floating format */
         float temp = ((float) hygroSensor.temperature) / 10;
@@ -772,7 +772,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"token\":\""           + String (apiKey)                          + "\"}";
 
         http.sendHeader ("Content-Length", httpRequestBody.length());
-        http.post (endpointHygroSensor, "Content-Type: application/json", httpRequestBody);
+        http.post (endpointHygroSensor, "application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
@@ -829,7 +829,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           }
         }
       }
-      vTaskDelay(15000 / portTICK_PERIOD_MS);
+      vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
   }
 }
