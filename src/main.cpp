@@ -341,7 +341,6 @@ void setup()
     }
   }
 
-
   /* RTOS tasks creation to run independently. */
 
   xTaskCreatePinnedToCore (Sensor_Task, "Sensor Task" // A name just for humans
@@ -351,7 +350,7 @@ void setup()
                           ,NULL
                           ,0);  //Task Handle
 
-  xTaskCreatePinnedToCore (Publish_KeepAlive_Task, "Cloud Task" // A name just for humans
+  xTaskCreatePinnedToCore (Publish_KeepAlive_Task, "Keep-Alive Task" // A name just for humans
                           ,8192 // Stack size
                           ,NULL //Parameters for the task
                           ,1    // Priority
