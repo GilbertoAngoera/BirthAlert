@@ -652,7 +652,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"position\":"      + String (thighSensor.position)            + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
-        http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+        http.sendHeader ("Content-Length", httpRequestBody.length());
         http.post (endpointThighSensor, "Content-Type: application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
@@ -710,7 +710,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"gap\":"           + String (vulvaSensor.gap)                 + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
-        http.sendHeader ("Content-Length", String(httpRequestBody.length()));
+        http.sendHeader ("Content-Length", httpRequestBody.length());
         http.post (endpointVulvaSensor, "Content-Type: application/json", httpRequestBody);
 
 #ifdef DEBUG_REQUEST
@@ -750,16 +750,58 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get and Remove sensor sample from queue */
+        /* Get sensor sample from queue (but don't remove it) */
         hygroSensor = hygroSensorQueue.front();
-        hygroSensorQueue.pop();
 
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
 
         /* Send HTTP Request */
-      }
+#ifdef DEBUG_REQUEST          
+          SerialMon.println("Performing HTTP POST request...");
+#endif
+        /* Converts temperature to floating format */
+        float temp = ((float) hygroSensor.temperature) / 10;
 
+        /* JSON request data */
+        httpRequestBody = "{\"macAddress\":\""      + String (hygroSensor.header.addr.c_str()) + "\","
+                           "\"battery\":\""         + String (hygroSensor.battery)             + "\","
+                           "\"timeStamp\":"         + String (hygroSensor.header.time)         + ","
+                           "\"temp_environment\":"  + String (temp)                            + ","
+                           "\"humidity\":"          + String (hygroSensor.humidity)            + ","
+                           "\"token\":\""           + String (apiKey)                          + "\"}";
+
+        http.sendHeader ("Content-Length", httpRequestBody.length());
+        http.post (endpointHygroSensor, "Content-Type: application/json", httpRequestBody);
+
+#ifdef DEBUG_REQUEST
+        SerialMon.println();
+        SerialMon.println(httpRequestBody);
+        SerialMon.println();
+#endif
+        // Read the status code and body of the response
+        statusCode = http.responseStatusCode();
+        response = http.responseBody();
+
+#ifdef DEBUG_REQUEST
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        Serial.print("Response: ");
+        Serial.println(response);
+#endif
+        /* If transaction is successful, remove from queue */
+        if (statusCode == 201)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+          /* Remove sensor sample from queue */
+          hygroSensorQueue.pop();
+
+          /* Exit critical session */
+          xSemaphoreGive(SensorQueueMutex);
+        }
+      }
 
       /* Reconnect when network is down */
       if (!modem.isNetworkConnected())
