@@ -38,6 +38,8 @@ using namespace std;
 #define AT_TIME_BEGIN   10
 #define AT_TIME_END     AT_TIME_BEGIN + AT_TIME_LEN
 
+#define QUEUE_MAX_LEN   512
+
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
 #define BLINK_GPIO GPIO_NUM_13
 
@@ -469,6 +471,11 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             Serial.printf("Sensor Pos : %d\n", thighSensorQueue.back().position);
             Serial.printf("Queue size: %d\n", thighSensorQueue.size());            
 #endif
+            /* Limits the queue size */
+            if (thighSensorQueue.size() > QUEUE_MAX_LEN)
+            {
+              thighSensorQueue.pop();
+            }
             /* Exit critical session */
             xSemaphoreGive (SensorQueueMutex);
 
@@ -498,6 +505,11 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             Serial.printf("Sensor Gap : %d\n", vulvaSensorQueue.back().gap);
             Serial.printf("Queue size: %d\n", vulvaSensorQueue.size());            
 #endif
+            /* Limits the queue size */
+            if (vulvaSensorQueue.size() > QUEUE_MAX_LEN)
+            {
+              vulvaSensorQueue.pop();
+            }
             /* Exit critical session */
             xSemaphoreGive (SensorQueueMutex);
 
@@ -526,6 +538,11 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             Serial.printf("Sensor Temp: %d\n", hygroSensorQueue.back().temperature);
             Serial.printf("Queue size: %d\n", hygroSensorQueue.size());
 #endif
+            /* Limits the queue size */
+            if (hygroSensorQueue.size() > QUEUE_MAX_LEN)
+            {
+              hygroSensorQueue.pop();
+            }
             /* Exit critical session */
             xSemaphoreGive (SensorQueueMutex);
 
