@@ -240,7 +240,7 @@ void gsm_http_post (String postdata, String endpoint)
   gsm_send_serial("AT+HTTPPARA=CID,1");
   gsm_send_serial("AT+HTTPPARA=URL," + endpoint);
   gsm_send_serial("AT+HTTPPARA=CONTENT,application/json");
-  gsm_send_serial("AT+HTTPDATA=192,5000");
+  gsm_send_serial("AT+HTTPDATA=" + String(endpoint.length()) + ",5000");
   gsm_send_serial(postdata);
   gsm_send_serial("AT+HTTPACTION=1");
   gsm_send_serial("AT+HTTPREAD");
@@ -253,7 +253,7 @@ void gsm_send_serial (String command)
   Serial.println("Send ->: " + command);
   Serial2.println(command);
   long wtimer = millis();
-  while (wtimer + 3000 > millis())
+  while (wtimer + 100 > millis())
   {
     while (Serial2.available())
     {
