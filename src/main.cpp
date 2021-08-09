@@ -540,7 +540,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     // delete results from BLE Scan Buffer to release memory
     pBLEScan->clearResults();
 
-    vTaskDelay(14000 / portTICK_PERIOD_MS);
+    vTaskDelay(29000 / portTICK_PERIOD_MS);
   }
 }
 
