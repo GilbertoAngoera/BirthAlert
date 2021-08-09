@@ -563,7 +563,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 
 /**
  *  @brief    Task to publish sensor data and keep-alive to cloud
- *  @details  Sends all available samples in sensor queues to cloud once every 15 seconds.
+ *  @details  Sends all available samples in sensor queues to cloud once every 10 seconds.
  * 
  *  @param [in] pvParameters  Not used.
  */
@@ -851,7 +851,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           }
         }
       }
-      vTaskDelay(5000 / portTICK_PERIOD_MS);
+      vTaskDelay(10000 / portTICK_PERIOD_MS);
     }
   }
 }
