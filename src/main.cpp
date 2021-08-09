@@ -604,8 +604,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                          "\"sensorsConected\":"  + String (0)                       + ","
                          "\"token\":\""          + String (apiKey)                  + "\"}";
 
-      http.sendHeader ("Content-Length", httpRequestBody.length());
+      http.beginRequest();      
       http.post (endpointKeepAlive, "application/json", httpRequestBody);
+      http.endRequest();      
 
 #ifdef DEBUG_REQUEST
       SerialMon.println();
@@ -623,7 +624,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       Serial.println(response);
 #endif
       /**
-       *  Publish available Thigh Sensor data
+       *  Publishes available Thigh Sensor data
        */
       if (thighSensorQueue.size() != 0)
       {
@@ -652,8 +653,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"position\":"      + String (thighSensor.position)            + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
-        http.sendHeader ("Content-Length", httpRequestBody.length());
+        http.beginRequest();       
         http.post (endpointThighSensor, "application/json", httpRequestBody);
+        http.endRequest();        
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
@@ -710,8 +712,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"gap\":"           + String (vulvaSensor.gap)                 + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
-        http.sendHeader ("Content-Length", httpRequestBody.length());
+        http.beginRequest();
         http.post (endpointVulvaSensor, "application/json", httpRequestBody);
+        http.endRequest();
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
@@ -772,8 +775,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"humidity\":"          + String (humidity)                        + ","
                            "\"token\":\""           + String (apiKey)                          + "\"}";
 
-        http.sendHeader ("Content-Length", httpRequestBody.length());
+        http.beginRequest();        
         http.post (endpointHygroSensor, "application/json", httpRequestBody);
+        http.endRequest();        
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
