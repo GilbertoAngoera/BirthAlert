@@ -247,9 +247,40 @@ void setLocalTime (String dateTime)
   settimeofday (&timeVal, NULL);
 }
 
+void gsm_http_post (String postdata, String endpoint)
+{
+  Serial.println(" --- Start GPRS & HTTP --- ");
+  gsm_send_serial("AT+SAPBR=1,1");
+  gsm_send_serial("AT+SAPBR=2,1");
+  gsm_send_serial("AT+HTTPINIT");
+  gsm_send_serial("AT+HTTPPARA=CID,1");
+  gsm_send_serial("AT+HTTPPARA=URL," + endpoint);
+  gsm_send_serial("AT+HTTPPARA=CONTENT,application/json");
+  gsm_send_serial("AT+HTTPDATA=192,5000");
+  gsm_send_serial(postdata);
+  gsm_send_serial("AT+HTTPACTION=1");
+  gsm_send_serial("AT+HTTPREAD");
+  gsm_send_serial("AT+HTTPTERM");
+  gsm_send_serial("AT+SAPBR=0,1");
+}
+
+void gsm_send_serial (String command)
+{
+  Serial.println("Send ->: " + command);
+  Serial2.println(command);
+  long wtimer = millis();
+  while (wtimer + 3000 > millis())
+  {
+    while (Serial2.available())
+    {
+      Serial.write(Serial2.read());
+    }
+  }
+  Serial.println();
+}
+
 void setup()
 {
-
   // initialize serial communication at 115200(?) bits per second:
   Serial.begin(115200);
   while (!Serial)
