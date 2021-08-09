@@ -388,10 +388,6 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
   int type = -1;
   int len = 0;
   char data[32];
-  string dado;
-  char formatted_date[64];
-  time_t current_time;
-  tm date;
 
   while (1)
   {
@@ -434,11 +430,6 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
           }
           Serial.printf("\n");
 #endif
-          /* Set the timestamp */
-          current_time = time(NULL);
-          date = *gmtime(&current_time);
-          strftime(formatted_date, 64, "%d/%m/%Y %H:%M:%S", &date);
-
           /* get sensor type */
           type = data[SENSOR_TYPE_POS];
 #ifdef DEBUG
