@@ -92,11 +92,6 @@ const char endpointKeepAlive[] = "/api/setKeepAliveRoteador";
 const char apiKey[] = "117f08a0a9c5808e93a4c246ec0f2dab";
 const int  port = 80;
 
-// NTP server info for time synch
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = -3 * 3600;  // Brazilian time offset (GMT-3)
-const int   daylightOffset_sec = 3600;
-
 struct tm *timeinfo;
 time_t now;
 
@@ -145,7 +140,8 @@ TinyGsmClient client (modem);
 void Sensor_Task(void *pvParameters);
 void Cloud_Task(void *pvParameters);
 void UI_Task(void *pvParameters);
-
+void gsm_send_serial (String command);
+void gsm_http_post (String postdata, String endpoint);
 
 bool setPowerBoostKeepOn(int en)
 {
@@ -173,18 +169,6 @@ unsigned long getTime()
 
   return now;
 }
-
-// unsigned long getTime()
-// {
-//   time_t now;
-//   struct tm timeinfo;
-//   if (!getLocalTime(&timeinfo)) {
-//     //Serial.println("Failed to obtain time");
-//     return(0);
-//   }
-//   time(&now);
-//   return now;
-// }
 
 /**
  *  @brief   Get network time 
@@ -643,24 +627,13 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                          "\"sensorsConected\":"  + String (0)                       + ","
                          "\"token\":\""          + String (apiKey)                  + "\"}";
 
-      http.beginRequest();      
-      http.post (endpointKeepAlive, "application/json", httpRequestBody);
-      http.endRequest();      
+      /* Send HTTP Request */ 
+      gsm_http_post (httpRequestBody, endpointKeepAlive);
 
 #ifdef DEBUG_REQUEST
       SerialMon.println();
       SerialMon.println(httpRequestBody);
       SerialMon.println();
-#endif
-      // Read the status code and body of the response
-      statusCode = http.responseStatusCode();
-      response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-      Serial.print("Status code: ");
-      Serial.println(statusCode);
-      Serial.print("Response: ");
-      Serial.println(response);
 #endif
       /**
        *  Publishes available Thigh Sensor data
@@ -692,27 +665,16 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"position\":"      + String (thighSensor.position)            + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
-        http.beginRequest();       
-        http.post (endpointThighSensor, "application/json", httpRequestBody);
-        http.endRequest();        
+        /* Send HTTP Request */ 
+        gsm_http_post (httpRequestBody, endpointThighSensor);       
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
         SerialMon.println(httpRequestBody);
         SerialMon.println();
 #endif
-        // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
-#endif
         /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
+        if (1)
         {
           /* Enter critical session to access the queue */
           xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -751,27 +713,16 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"gap\":"           + String (vulvaSensor.gap)                 + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
-        http.beginRequest();
-        http.post (endpointVulvaSensor, "application/json", httpRequestBody);
-        http.endRequest();
+        /* Send HTTP Request */ 
+        gsm_http_post (httpRequestBody, endpointVulvaSensor);
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
         SerialMon.println(httpRequestBody);
         SerialMon.println();
 #endif
-        // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
-#endif
         /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
+        if (1)
         {
           /* Enter critical session to access the queue */
           xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -814,27 +765,16 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"humidity\":"          + String (humidity)                        + ","
                            "\"token\":\""           + String (apiKey)                          + "\"}";
 
-        http.beginRequest();        
-        http.post (endpointHygroSensor, "application/json", httpRequestBody);
-        http.endRequest();        
+        /* Send HTTP Request */ 
+        gsm_http_post (httpRequestBody, endpointHygroSensor);        
 
 #ifdef DEBUG_REQUEST
         SerialMon.println();
         SerialMon.println(httpRequestBody);
         SerialMon.println();
 #endif
-        // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
-
-#ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
-#endif
         /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
+        if (1)
         {
           /* Enter critical session to access the queue */
           xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
