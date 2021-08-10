@@ -555,7 +555,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 
 /**
  *  @brief    Task to publish sensor data and keep-alive to cloud
- *  @details  Sends all available samples in sensor queues to cloud once every 10 seconds.
+ *  @details  Sends all available samples in sensor queues to cloud.
  * 
  *  @param [in] pvParameters  Not used.
  */
@@ -598,15 +598,17 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       /* Server connected */
       SerialMon.println(" OK");
     }
-
-    while (1)
+  }
+  while (1)
+  {
+    if (modem.isNetworkConnected())
     {
       /*
        *  Publishes Keep-Alive  
        */
-#ifdef DEBUG_REQUEST        
+#ifdef DEBUG_REQUEST
       SerialMon.println("Performing Keep-Alive request...");
-#endif        
+#endif
       /* Get local MacAddress */
       BLEAddress addr = BLEDevice::getAddress();
 
@@ -616,22 +618,22 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                          "\"sensorsConected\":"  + String (0)                       + ","
                          "\"token\":\""          + String (apiKey)                  + "\"}";
 
-      http.beginRequest();      
-      http.post (endpointKeepAlive, "application/json", httpRequestBody);
-      http.endRequest();      
+      http.beginRequest();
+      http.post(endpointKeepAlive, "application/json", httpRequestBody);
+      http.endRequest();
 
 #ifdef DEBUG_REQUEST
       SerialMon.println(httpRequestBody);
 #endif
 #ifdef DEBUG_REQUEST_RESPONSE
-        // Read the status code and response body 
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
+      // Read the status code and response body
+      statusCode = http.responseStatusCode();
+      response = http.responseBody();
 
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
+      Serial.print("Status code: ");
+      Serial.println(statusCode);
+      Serial.print("Response: ");
+      Serial.println(response);
 #endif
       /**
        *  Publishes available Thigh Sensor data
@@ -649,11 +651,11 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         xSemaphoreGive(SensorQueueMutex);
 
         /* Send HTTP Request */
-#ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing Thigh Sensor request...");
+#ifdef DEBUG_REQUEST
+        SerialMon.println("Performing Thigh Sensor request...");
 #endif
         /* Converts temperature to floating format */
-        float temperature = ((float) thighSensor.temperature) / 10;
+        float temperature = ((float)thighSensor.temperature) / 10;
 
         /* JSON request data */
         httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
@@ -664,15 +666,15 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"position\":"      + String (thighSensor.position)            + ","
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
-        http.beginRequest();       
-        http.post (endpointThighSensor, "application/json", httpRequestBody);
-        http.endRequest();        
+        http.beginRequest();
+        http.post(endpointThighSensor, "application/json", httpRequestBody);
+        http.endRequest();
 
 #ifdef DEBUG_REQUEST
         SerialMon.println(httpRequestBody);
 #endif
 #ifdef DEBUG_REQUEST_RESPONSE
-        // Read the status code and response body 
+        // Read the status code and response body
         statusCode = http.responseStatusCode();
         response = http.responseBody();
 
@@ -699,8 +701,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         xSemaphoreGive(SensorQueueMutex);
 
         /* Send HTTP Request */
-#ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing Vulva Sensor request...");
+#ifdef DEBUG_REQUEST
+        SerialMon.println("Performing Vulva Sensor request...");
 #endif
         /* JSON request data */
         httpRequestBody = "{\"macAddress\":\""  + String (vulvaSensor.header.addr.c_str()) + "\","
@@ -711,14 +713,14 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"token\":\""       + String (apiKey)                          + "\"}";
 
         http.beginRequest();
-        http.post (endpointVulvaSensor, "application/json", httpRequestBody);
+        http.post(endpointVulvaSensor, "application/json", httpRequestBody);
         http.endRequest();
 
 #ifdef DEBUG_REQUEST
         SerialMon.println(httpRequestBody);
 #endif
 #ifdef DEBUG_REQUEST_RESPONSE
-        // Read the status code and response body 
+        // Read the status code and response body
         statusCode = http.responseStatusCode();
         response = http.responseBody();
 
@@ -745,12 +747,12 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         xSemaphoreGive(SensorQueueMutex);
 
         /* Send HTTP Request */
-#ifdef DEBUG_REQUEST          
-          SerialMon.println("Performing Hygro Sensor request...");
+#ifdef DEBUG_REQUEST
+        SerialMon.println("Performing Hygro Sensor request...");
 #endif
         /* Converts humidity and temperature to floating format */
-        float temperature = ((float) hygroSensor.temperature) / 10;
-        float humidity = ((float) hygroSensor.humidity) / 10;
+        float temperature = ((float)hygroSensor.temperature) / 10;
+        float humidity = ((float)hygroSensor.humidity) / 10;
 
         /* JSON request data */
         httpRequestBody = "{\"macAddress\":\""      + String (hygroSensor.header.addr.c_str()) + "\","
@@ -760,15 +762,15 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                            "\"humidity\":"          + String (humidity)                        + ","
                            "\"token\":\""           + String (apiKey)                          + "\"}";
 
-        http.beginRequest();        
-        http.post (endpointHygroSensor, "application/json", httpRequestBody);
-        http.endRequest();        
+        http.beginRequest();
+        http.post(endpointHygroSensor, "application/json", httpRequestBody);
+        http.endRequest();
 
 #ifdef DEBUG_REQUEST
         SerialMon.println(httpRequestBody);
 #endif
 #ifdef DEBUG_REQUEST_RESPONSE
-        // Read the status code and response body 
+        // Read the status code and response body
         statusCode = http.responseStatusCode();
         response = http.responseBody();
 
@@ -778,35 +780,37 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         Serial.println(response);
 #endif
       }
-      /* Reconnect when network is down */
-      if (!modem.isNetworkConnected())
+    } 
+    /* Network is down */
+    else
+    {
+      /* Try to reconnect */
+      SerialMon.println("Network is down. Trying to reconnect..."); 
+      if (!modem.gprsConnect(apn, gprsUser, gprsPass))
       {
-        if (!modem.gprsConnect(apn, gprsUser, gprsPass))
+        SerialMon.println(" fail");
+      }
+      else
+      {
+        /* APN connected */
+        SerialMon.println(" OK");
+
+        /* Connect to Server */
+        SerialMon.print("Connecting to ");
+        SerialMon.print(server);
+        if (!client.connect(server, port))
         {
           SerialMon.println(" fail");
         }
         else
         {
-          /* APN connected */
+          /* Server connected */
           SerialMon.println(" OK");
-
-          /* Connect to Server */
-          SerialMon.print("Connecting to ");
-          SerialMon.print(server);
-          if (!client.connect(server, port))
-          {
-            SerialMon.println(" fail");
-          }
-          else
-          {
-            /* Server connected */
-            SerialMon.println(" OK");
-          }
         }
       }
-      vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
-  }
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }/* infinite loop */
 }
 
  /**
