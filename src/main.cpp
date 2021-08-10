@@ -800,7 +800,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
           }
         }
       }
-      vTaskDelay(10000 / portTICK_PERIOD_MS);
+      vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
   }
 }
