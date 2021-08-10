@@ -617,9 +617,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       http.endRequest();      
 
 #ifdef DEBUG_REQUEST
-      SerialMon.println();
       SerialMon.println(httpRequestBody);
-      SerialMon.println();
 #endif
       // Read the status code and body of the response
       // statusCode = http.responseStatusCode();
@@ -666,9 +664,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         http.endRequest();        
 
 #ifdef DEBUG_REQUEST
-        SerialMon.println();
         SerialMon.println(httpRequestBody);
-        SerialMon.println();
 #endif
         // Read the status code and body of the response
         // statusCode = http.responseStatusCode();
@@ -725,9 +721,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         http.endRequest();
 
 #ifdef DEBUG_REQUEST
-        SerialMon.println();
         SerialMon.println(httpRequestBody);
-        SerialMon.println();
 #endif
         // Read the status code and body of the response
         // statusCode = http.responseStatusCode();
@@ -788,9 +782,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         http.endRequest();        
 
 #ifdef DEBUG_REQUEST
-        SerialMon.println();
         SerialMon.println(httpRequestBody);
-        SerialMon.println();
 #endif
         // Read the status code and body of the response
         // statusCode = http.responseStatusCode();
