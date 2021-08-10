@@ -632,13 +632,14 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       /**
        *  Publishes available Thigh Sensor data
        */
-      if (thighSensorQueue.size() != 0)
+      while (thighSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get sensor sample from queue (but don't remove it) */
+        /* Get and remove sensor sample from queue */
         thighSensor = thighSensorQueue.front();
+        thighSensorQueue.pop();
 
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
@@ -676,30 +677,19 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         // Serial.print("Response: ");
         // Serial.println(response);
 #endif
-        /* If transaction is successful, remove from queue */
-        if (1)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
-
-          /* Remove sensor sample from queue */
-          thighSensorQueue.pop();
-
-          /* Exit critical session */
-          xSemaphoreGive(SensorQueueMutex);
-        }
       }
 
       /*
        *  Publishes available Vulva Sensor data
        */
-      if (vulvaSensorQueue.size() != 0)
+      while (vulvaSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get sensor sample from queue (but don't remove it) */
+        /* Get and remove sensor sample from queue */
         vulvaSensor = vulvaSensorQueue.front();
+        vulvaSensorQueue.pop();
 
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
@@ -733,30 +723,19 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         // Serial.print("Response: ");
         // Serial.println(response);
 #endif
-        /* If transaction is successful, remove from queue */
-        if (1)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
-
-          /* Remove sensor sample from queue */
-          vulvaSensorQueue.pop();
-
-          /* Exit critical session */
-          xSemaphoreGive(SensorQueueMutex);
-        }
       }
 
       /*
        *  Publishes available Hygrometer Sensor data
        */
-      if (hygroSensorQueue.size() != 0)
+      while (hygroSensorQueue.size() != 0)
       {
         /* Enter critical session to access the queue */
         xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get sensor sample from queue (but don't remove it) */
+        /* Get and remove sensor sample from queue */
         hygroSensor = hygroSensorQueue.front();
+        hygroSensorQueue.pop();
 
         /* Exit critical session */
         xSemaphoreGive(SensorQueueMutex);
@@ -794,20 +773,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         // Serial.print("Response: ");
         // Serial.println(response);
 #endif
-        /* If transaction is successful, remove from queue */
-        if (1)
-        {
-          /* Enter critical session to access the queue */
-          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
-
-          /* Remove sensor sample from queue */
-          hygroSensorQueue.pop();
-
-          /* Exit critical session */
-          xSemaphoreGive(SensorQueueMutex);
-        }
       }
-
       /* Reconnect when network is down */
       if (!modem.isNetworkConnected())
       {
