@@ -622,14 +622,14 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       SerialMon.println();
 #endif
       // Read the status code and body of the response
-      statusCode = http.responseStatusCode();
-      response = http.responseBody();
+      // statusCode = http.responseStatusCode();
+      // response = http.responseBody();
 
 #ifdef DEBUG_REQUEST
-      Serial.print("Status code: ");
-      Serial.println(statusCode);
-      Serial.print("Response: ");
-      Serial.println(response);
+      // Serial.print("Status code: ");
+      // Serial.println(statusCode);
+      // Serial.print("Response: ");
+      // Serial.println(response);
 #endif
       /**
        *  Publishes available Thigh Sensor data
@@ -671,17 +671,17 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         SerialMon.println();
 #endif
         // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
+        // statusCode = http.responseStatusCode();
+        // response = http.responseBody();
 
 #ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
+        // Serial.print("Status code: ");
+        // Serial.println(statusCode);
+        // Serial.print("Response: ");
+        // Serial.println(response);
 #endif
         /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
+        if (1)
         {
           /* Enter critical session to access the queue */
           xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -730,17 +730,17 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         SerialMon.println();
 #endif
         // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
+        // statusCode = http.responseStatusCode();
+        // response = http.responseBody();
 
 #ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
+        // Serial.print("Status code: ");
+        // Serial.println(statusCode);
+        // Serial.print("Response: ");
+        // Serial.println(response);
 #endif
         /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
+        if (1)
         {
           /* Enter critical session to access the queue */
           xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -793,17 +793,17 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         SerialMon.println();
 #endif
         // Read the status code and body of the response
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
+        // statusCode = http.responseStatusCode();
+        // response = http.responseBody();
 
 #ifdef DEBUG_REQUEST
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
+        // Serial.print("Status code: ");
+        // Serial.println(statusCode);
+        // Serial.print("Response: ");
+        // Serial.println(response);
 #endif
         /* If transaction is successful, remove from queue */
-        if (statusCode == 201)
+        if (1)
         {
           /* Enter critical session to access the queue */
           xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
