@@ -142,6 +142,7 @@ void Cloud_Task(void *pvParameters);
 void UI_Task(void *pvParameters);
 void gsm_send_serial (String command);
 void gsm_http_post (String postdata, String endpoint);
+void gsm_config_gprs ();
 
 bool setPowerBoostKeepOn(int en)
 {
@@ -231,6 +232,9 @@ void setLocalTime (String dateTime)
   settimeofday (&timeVal, NULL);
 }
 
+/**
+ * 
+ */
 void gsm_http_post (String postdata, String endpoint)
 {
   Serial.println(" --- Start GPRS & HTTP --- ");
@@ -240,7 +244,7 @@ void gsm_http_post (String postdata, String endpoint)
   gsm_send_serial("AT+HTTPPARA=CID,1");
   gsm_send_serial("AT+HTTPPARA=URL," + endpoint);
   gsm_send_serial("AT+HTTPPARA=CONTENT,application/json");
-  gsm_send_serial("AT+HTTPDATA=" + String(endpoint.length()) + ",5000");
+  gsm_send_serial("AT+HTTPDATA=" + String(postdata.length()) + ",5000");
   gsm_send_serial(postdata);
   gsm_send_serial("AT+HTTPACTION=1");
   gsm_send_serial("AT+HTTPREAD");
@@ -248,6 +252,9 @@ void gsm_http_post (String postdata, String endpoint)
   gsm_send_serial("AT+SAPBR=0,1");
 }
 
+/**
+ * 
+ */
 void gsm_send_serial (String command)
 {
   Serial.println("Send ->: " + command);
@@ -257,10 +264,28 @@ void gsm_send_serial (String command)
   {
     while (Serial2.available())
     {
-      Serial.write(Serial2.read());
+      Serial.print(Serial2.read());
     }
   }
   Serial.println();
+}
+
+/**
+ * 
+ */
+void gsm_config_gprs()
+{
+  Serial.println(" --- CONFIG GPRS --- ");
+  gsm_send_serial("AT+SAPBR=3,1,Contype,GPRS");
+  gsm_send_serial("AT+SAPBR=3,1,APN," + String(apn));
+  if (gprsUser != "")
+  {
+    gsm_send_serial("AT+SAPBR=3,1,USER," + String(gprsUser));
+  }
+  if (gprsPass != "")
+  {
+    gsm_send_serial("AT+SAPBR=3,1,PWD," + String(gprsPass));
+  }
 }
 
 void setup()
@@ -609,6 +634,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       /* Server connected */
       SerialMon.println(" OK");
     }
+
+    gsm_config_gprs();
 
     while (1)
     {
