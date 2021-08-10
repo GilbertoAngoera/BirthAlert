@@ -796,7 +796,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
         SerialMon.println(" OK");
 
         /* Connect to Server */
-        SerialMon.print("Connecting to ");
+        SerialMon.print("Reconnecting to ");
         SerialMon.print(server);
         if (!client.connect(server, port))
         {
