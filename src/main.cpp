@@ -30,6 +30,7 @@ using namespace std;
 /* If defined, allows terminal debug info */
 #define DEBUG
 #define DEBUG_REQUEST
+// #define DEBUG_REQUEST_RESPONSE
 // #define DEBUG_EXAMPLE
 // #define PUBLISH_RANDOM_DATA
 
@@ -564,8 +565,11 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   vulva_sensor_data_t vulvaSensor;
   hygrometer_sensor_data_t hygroSensor;
   String httpRequestBody;
+
+  #ifdef DEBUG_REQUEST_RESPONSE
   String response;
   int statusCode = 0;
+  #endif
 
   /* Creates the HTTP client */
   HttpClient http = HttpClient (client, server, port);
@@ -619,15 +623,15 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 #ifdef DEBUG_REQUEST
       SerialMon.println(httpRequestBody);
 #endif
-      // Read the status code and body of the response
-      // statusCode = http.responseStatusCode();
-      // response = http.responseBody();
+#ifdef DEBUG_REQUEST_RESPONSE
+        // Read the status code and response body 
+        statusCode = http.responseStatusCode();
+        response = http.responseBody();
 
-#ifdef DEBUG_REQUEST
-      // Serial.print("Status code: ");
-      // Serial.println(statusCode);
-      // Serial.print("Response: ");
-      // Serial.println(response);
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        Serial.print("Response: ");
+        Serial.println(response);
 #endif
       /**
        *  Publishes available Thigh Sensor data
@@ -667,15 +671,15 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 #ifdef DEBUG_REQUEST
         SerialMon.println(httpRequestBody);
 #endif
-        // Read the status code and body of the response
-        // statusCode = http.responseStatusCode();
-        // response = http.responseBody();
+#ifdef DEBUG_REQUEST_RESPONSE
+        // Read the status code and response body 
+        statusCode = http.responseStatusCode();
+        response = http.responseBody();
 
-#ifdef DEBUG_REQUEST
-        // Serial.print("Status code: ");
-        // Serial.println(statusCode);
-        // Serial.print("Response: ");
-        // Serial.println(response);
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        Serial.print("Response: ");
+        Serial.println(response);
 #endif
       }
 
@@ -713,15 +717,15 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 #ifdef DEBUG_REQUEST
         SerialMon.println(httpRequestBody);
 #endif
-        // Read the status code and body of the response
-        // statusCode = http.responseStatusCode();
-        // response = http.responseBody();
+#ifdef DEBUG_REQUEST_RESPONSE
+        // Read the status code and response body 
+        statusCode = http.responseStatusCode();
+        response = http.responseBody();
 
-#ifdef DEBUG_REQUEST
-        // Serial.print("Status code: ");
-        // Serial.println(statusCode);
-        // Serial.print("Response: ");
-        // Serial.println(response);
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        Serial.print("Response: ");
+        Serial.println(response);
 #endif
       }
 
@@ -763,15 +767,15 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 #ifdef DEBUG_REQUEST
         SerialMon.println(httpRequestBody);
 #endif
-        // Read the status code and body of the response
-        // statusCode = http.responseStatusCode();
-        // response = http.responseBody();
+#ifdef DEBUG_REQUEST_RESPONSE
+        // Read the status code and response body 
+        statusCode = http.responseStatusCode();
+        response = http.responseBody();
 
-#ifdef DEBUG_REQUEST
-        // Serial.print("Status code: ");
-        // Serial.println(statusCode);
-        // Serial.print("Response: ");
-        // Serial.println(response);
+        Serial.print("Status code: ");
+        Serial.println(statusCode);
+        Serial.print("Response: ");
+        Serial.println(response);
 #endif
       }
       /* Reconnect when network is down */
