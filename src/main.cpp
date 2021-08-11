@@ -582,6 +582,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       SerialMon.println(" OK");
     }
   }
+
   while (1)
   {
     /* Publishes only when connected */
@@ -597,10 +598,13 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       BLEAddress addr = BLEDevice::getAddress();
 
       /* JSON request data */
-      httpRequestBody = "{\"macAddress\":\""     + String (addr.toString().c_str()) + "\","
-                         "\"timeStamp\":"        + String (getTime())               + ","
-                         "\"sensorsConected\":"  + String (0)                       + ","
-                         "\"token\":\""          + String (apiKey)                  + "\"}";
+      httpRequestBody = "{\"macAddress\":\"" + String(addr.toString().c_str()) + "\","
+                                                                                 "\"timeStamp\":" +
+                        String(getTime()) + ","
+                                            "\"sensorsConected\":" +
+                        String(0) + ","
+                                    "\"token\":\"" +
+                        String(apiKey) + "\"}";
 
       http.beginRequest();
       http.post(endpointKeepAlive, "application/json", httpRequestBody);
@@ -619,152 +623,174 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
       Serial.print("Response: ");
       Serial.println(response);
 #endif
-      /**
-       *  Publishes available Thigh Sensor data
-       */
-      while (thighSensorQueue.size() != 0)
+      /* Alternates queue sample publishing */
+      while ((thighSensorQueue.size() > 0) ||
+             (vulvaSensorQueue.size() > 0) ||
+             (hygroSensorQueue.size() > 0))
       {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+        /**
+         *  Publishes available Thigh Sensor data
+         */
+        if (thighSensorQueue.size() > 0)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get and remove sensor sample from queue */
-        thighSensor = thighSensorQueue.front();
-        thighSensorQueue.pop();
+          /* Get and remove sensor sample from queue */
+          thighSensor = thighSensorQueue.front();
+          thighSensorQueue.pop();
 
-        /* Exit critical session */
-        xSemaphoreGive(SensorQueueMutex);
+          /* Exit critical session */
+          xSemaphoreGive(SensorQueueMutex);
 
-        /* Send HTTP Request */
+          /* Send HTTP Request */
 #ifdef DEBUG_REQUEST
-        SerialMon.println("Performing Thigh Sensor request...");
+          SerialMon.println("Performing Thigh Sensor request...");
 #endif
-        /* Converts temperature to floating format */
-        float temperature = ((float)thighSensor.temperature) / 10;
+          /* Converts temperature to floating format */
+          float temperature = ((float)thighSensor.temperature) / 10;
 
-        /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""  + String (thighSensor.header.addr.c_str()) + "\","
-                           "\"battery\":\""     + String (thighSensor.battery)             + "\","
-                           "\"timeStamp\":"     + String (thighSensor.header.time)         + ","
-                           "\"temperature\":"   + String (temperature)                     + ","
-                           "\"active\":"        + String (thighSensor.activity)            + ","
-                           "\"position\":"      + String (thighSensor.position)            + ","
-                           "\"token\":\""       + String (apiKey)                          + "\"}";
+          /* JSON request data */
+          httpRequestBody = "{\"macAddress\":\"" + String(thighSensor.header.addr.c_str()) + "\","
+                                                                                             "\"battery\":\"" +
+                            String(thighSensor.battery) + "\","
+                                                          "\"timeStamp\":" +
+                            String(thighSensor.header.time) + ","
+                                                              "\"temperature\":" +
+                            String(temperature) + ","
+                                                  "\"active\":" +
+                            String(thighSensor.activity) + ","
+                                                           "\"position\":" +
+                            String(thighSensor.position) + ","
+                                                           "\"token\":\"" +
+                            String(apiKey) + "\"}";
 
-        http.beginRequest();
-        http.post(endpointThighSensor, "application/json", httpRequestBody);
-        http.endRequest();
+          http.beginRequest();
+          http.post(endpointThighSensor, "application/json", httpRequestBody);
+          http.endRequest();
 
 #ifdef DEBUG_REQUEST
-        SerialMon.println(httpRequestBody);
+          SerialMon.println(httpRequestBody);
 #endif
 #ifdef DEBUG_REQUEST_RESPONSE
-        // Read the status code and response body
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
+          // Read the status code and response body
+          statusCode = http.responseStatusCode();
+          response = http.responseBody();
 
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+          Serial.print("Response: ");
+          Serial.println(response);
 #endif
-      }
+        }
 
-      /*
-       *  Publishes available Vulva Sensor data
-       */
-      while (vulvaSensorQueue.size() != 0)
-      {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+        /*
+         *  Publishes available Vulva Sensor data
+         */
+        if (vulvaSensorQueue.size() > 0)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get and remove sensor sample from queue */
-        vulvaSensor = vulvaSensorQueue.front();
-        vulvaSensorQueue.pop();
+          /* Get and remove sensor sample from queue */
+          vulvaSensor = vulvaSensorQueue.front();
+          vulvaSensorQueue.pop();
 
-        /* Exit critical session */
-        xSemaphoreGive(SensorQueueMutex);
+          /* Exit critical session */
+          xSemaphoreGive(SensorQueueMutex);
 
-        /* Send HTTP Request */
+          /* Send HTTP Request */
 #ifdef DEBUG_REQUEST
-        SerialMon.println("Performing Vulva Sensor request...");
+          SerialMon.println("Performing Vulva Sensor request...");
 #endif
-        /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""  + String (vulvaSensor.header.addr.c_str()) + "\","
-                           "\"battery\":\""     + String (vulvaSensor.battery)             + "\","
-                           "\"timeStamp\":"     + String (vulvaSensor.header.time)         + ","
-                           "\"dilation\":"      + String (vulvaSensor.dilation)            + ","
-                           "\"gap\":"           + String (vulvaSensor.gap)                 + ","
-                           "\"token\":\""       + String (apiKey)                          + "\"}";
+          /* JSON request data */
+          httpRequestBody = "{\"macAddress\":\"" + String(vulvaSensor.header.addr.c_str()) + "\","
+                                                                                             "\"battery\":\"" +
+                            String(vulvaSensor.battery) + "\","
+                                                          "\"timeStamp\":" +
+                            String(vulvaSensor.header.time) + ","
+                                                              "\"dilation\":" +
+                            String(vulvaSensor.dilation) + ","
+                                                           "\"gap\":" +
+                            String(vulvaSensor.gap) + ","
+                                                      "\"token\":\"" +
+                            String(apiKey) + "\"}";
 
-        http.beginRequest();
-        http.post(endpointVulvaSensor, "application/json", httpRequestBody);
-        http.endRequest();
+          http.beginRequest();
+          http.post(endpointVulvaSensor, "application/json", httpRequestBody);
+          http.endRequest();
 
 #ifdef DEBUG_REQUEST
-        SerialMon.println(httpRequestBody);
+          SerialMon.println(httpRequestBody);
 #endif
 #ifdef DEBUG_REQUEST_RESPONSE
-        // Read the status code and response body
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
+          // Read the status code and response body
+          statusCode = http.responseStatusCode();
+          response = http.responseBody();
 
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+          Serial.print("Response: ");
+          Serial.println(response);
 #endif
-      }
+        }
 
-      /*
-       *  Publishes available Hygrometer Sensor data
-       */
-      while (hygroSensorQueue.size() != 0)
-      {
-        /* Enter critical session to access the queue */
-        xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+        /*
+         *  Publishes available Hygrometer Sensor data
+         */
+        if (hygroSensorQueue.size() > 0)
+        {
+          /* Enter critical session to access the queue */
+          xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
 
-        /* Get and remove sensor sample from queue */
-        hygroSensor = hygroSensorQueue.front();
-        hygroSensorQueue.pop();
+          /* Get and remove sensor sample from queue */
+          hygroSensor = hygroSensorQueue.front();
+          hygroSensorQueue.pop();
 
-        /* Exit critical session */
-        xSemaphoreGive(SensorQueueMutex);
+          /* Exit critical session */
+          xSemaphoreGive(SensorQueueMutex);
 
-        /* Send HTTP Request */
+          /* Send HTTP Request */
 #ifdef DEBUG_REQUEST
-        SerialMon.println("Performing Hygro Sensor request...");
+          SerialMon.println("Performing Hygro Sensor request...");
 #endif
-        /* Converts humidity and temperature to floating format */
-        float temperature = ((float)hygroSensor.temperature) / 10;
-        float humidity = ((float)hygroSensor.humidity) / 10;
+          /* Converts humidity and temperature to floating format */
+          float temperature = ((float)hygroSensor.temperature) / 10;
+          float humidity = ((float)hygroSensor.humidity) / 10;
 
-        /* JSON request data */
-        httpRequestBody = "{\"macAddress\":\""      + String (hygroSensor.header.addr.c_str()) + "\","
-                           "\"battery\":\""         + String (hygroSensor.battery)             + "\","
-                           "\"timeStamp\":"         + String (hygroSensor.header.time)         + ","
-                           "\"temp_environment\":"  + String (temperature)                     + ","
-                           "\"humidity\":"          + String (humidity)                        + ","
-                           "\"token\":\""           + String (apiKey)                          + "\"}";
+          /* JSON request data */
+          httpRequestBody = "{\"macAddress\":\"" + String(hygroSensor.header.addr.c_str()) + "\","
+                                                                                             "\"battery\":\"" +
+                            String(hygroSensor.battery) + "\","
+                                                          "\"timeStamp\":" +
+                            String(hygroSensor.header.time) + ","
+                                                              "\"temp_environment\":" +
+                            String(temperature) + ","
+                                                  "\"humidity\":" +
+                            String(humidity) + ","
+                                               "\"token\":\"" +
+                            String(apiKey) + "\"}";
 
-        http.beginRequest();
-        http.post(endpointHygroSensor, "application/json", httpRequestBody);
-        http.endRequest();
+          http.beginRequest();
+          http.post(endpointHygroSensor, "application/json", httpRequestBody);
+          http.endRequest();
 
 #ifdef DEBUG_REQUEST
-        SerialMon.println(httpRequestBody);
+          SerialMon.println(httpRequestBody);
 #endif
 #ifdef DEBUG_REQUEST_RESPONSE
-        // Read the status code and response body
-        statusCode = http.responseStatusCode();
-        response = http.responseBody();
+          // Read the status code and response body
+          statusCode = http.responseStatusCode();
+          response = http.responseBody();
 
-        Serial.print("Status code: ");
-        Serial.println(statusCode);
-        Serial.print("Response: ");
-        Serial.println(response);
+          Serial.print("Status code: ");
+          Serial.println(statusCode);
+          Serial.print("Response: ");
+          Serial.println(response);
 #endif
+        }
       }
-    } 
+    }
     /* Network is down */
     else
     {
