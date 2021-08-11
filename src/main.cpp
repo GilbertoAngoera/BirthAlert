@@ -601,7 +601,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   }
   while (1)
   {
-    if (modem.isNetworkConnected())
+    /* Publishes only when connected */
+    if (modem.isNetworkConnected() && client.connected())
     {
       /*
        *  Publishes Keep-Alive  
@@ -784,6 +785,10 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
     /* Network is down */
     else
     {
+      /* Reinit from scratch */
+      client.stop();
+      modem.gprsDisconnect();
+      
       /* Try to reconnect */
       SerialMon.println("Network is down. Trying to reconnect..."); 
       if (!modem.gprsConnect(apn, gprsUser, gprsPass))
