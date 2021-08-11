@@ -27,7 +27,7 @@
 
 using namespace std;
 
-/* If defined, allows terminal debug info */
+/* When defined, allows terminal debug info */
 #define DEBUG
 #define DEBUG_REQUEST
 // #define DEBUG_REQUEST_RESPONSE
@@ -85,18 +85,12 @@ const char simPIN[] = "";             // SIM card PIN (leave empty, if not defin
 
 // Server details
 const char server[] = "birthalert.angoeratech.com.br";
-const char resource[] = "/api/setSensorCoxa";
 const char endpointThighSensor[] = "/api/setSensorCoxa";
 const char endpointVulvaSensor[] = "/api/setSensorVulva";
 const char endpointHygroSensor[] = "/api/setSensorUmidadeTemperatura";
 const char endpointKeepAlive[] = "/api/setKeepAliveRoteador";
 const char apiKey[] = "117f08a0a9c5808e93a4c246ec0f2dab";
 const int  port = 80;
-
-// NTP server info for time synch
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = -3 * 3600;  // Brazilian time offset (GMT-3)
-const int   daylightOffset_sec = 3600;
 
 struct tm *timeinfo;
 time_t now;
@@ -147,7 +141,6 @@ void Sensor_Task(void *pvParameters);
 void Cloud_Task(void *pvParameters);
 void UI_Task(void *pvParameters);
 
-
 bool setPowerBoostKeepOn(int en)
 {
   I2CPower.beginTransmission(IP5306_ADDR);
@@ -163,7 +156,9 @@ bool setPowerBoostKeepOn(int en)
   return I2CPower.endTransmission() == 0;
 }
 
-// Function that gets current epoch time
+/**
+ *  @brief  Function that gets current epoch time
+ */
 unsigned long getTime()
 {
   // time_t now;
@@ -174,18 +169,6 @@ unsigned long getTime()
 
   return now;
 }
-
-// unsigned long getTime()
-// {
-//   time_t now;
-//   struct tm timeinfo;
-//   if (!getLocalTime(&timeinfo)) {
-//     //Serial.println("Failed to obtain time");
-//     return(0);
-//   }
-//   time(&now);
-//   return now;
-// }
 
 /**
  *  @brief   Get network time 
@@ -785,7 +768,7 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
     /* Network is down */
     else
     {
-      /* Reinit from scratch */
+      /* Reinit connection from scratch */
       client.stop();
       modem.gprsDisconnect();
       
