@@ -52,9 +52,6 @@ using namespace std;
 
 DHT dht(DHTPIN, DHTTYPE);
 
-/* Get local MacAddress */
-BLEAddress localMACAddress = BLEDevice::getAddress();
-
 /* Global queues to store sensor samples */
 queue<thigh_sensor_data_t> thighSensorQueue;
 queue<vulva_sensor_data_t> vulvaSensorQueue;
@@ -255,9 +252,6 @@ void setup()
 
   /* Create the queue mutex */
   SensorQueueMutex = xSemaphoreCreateMutex();
-
-  // /* Get local MacAddress */
-  // localMACAddress = BLEDevice::getAddress();
 
   /**
    *  Environmental sensor setup
@@ -531,7 +525,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 
     /* Get local Environmental Sensor data (temperature, humidity) */
     hygroSensor.header.name = "REG_SENSOR_HYGRO";
-    hygroSensor.header.addr = localMACAddress.toString();
+    hygroSensor.header.addr = "";
     hygroSensor.header.time = getTime();
     hygroSensor.battery = 100;  
     hygroSensor.humidity = dht.readHumidity();
@@ -544,6 +538,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     hygroSensorQueue.push(hygroSensor);
 #ifdef DEBUG
     /* Print latest sample values */
+    Serial.println();
     Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name.c_str());
     Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
     Serial.printf("Sensor Time: %d\n", (int)hygroSensorQueue.back().header.time);
@@ -581,6 +576,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   String response;
   int statusCode = 0;
   #endif
+
+  /* Get local MAC Address */
+  BLEAddress localMACAddress = BLEDevice::getAddress();
 
   /* Creates the HTTP client */
   HttpClient http = HttpClient (client, server, port);
