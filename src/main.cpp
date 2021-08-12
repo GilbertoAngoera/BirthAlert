@@ -20,6 +20,8 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
+#include <DHT.h>
+#include <DHT_U.h>
 #include <queue>
 #include <sys/time.h>
 #include <time.h>
@@ -42,7 +44,16 @@ using namespace std;
 #define QUEUE_MAX_LEN   512
 
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
-#define BLINK_GPIO GPIO_NUM_13
+#define BLINK_GPIO      GPIO_NUM_13
+
+/* Environmental sensor definitions */
+#define DHTPIN          GPIO_NUM_12
+#define DHTTYPE         DHT22    // Sensor model (DHT22 AM2302)
+
+DHT dht(DHTPIN, DHTTYPE);
+
+/* Get local MacAddress */
+BLEAddress localMACAddress = BLEDevice::getAddress();
 
 /* Global queues to store sensor samples */
 queue<thigh_sensor_data_t> thighSensorQueue;
@@ -245,8 +256,23 @@ void setup()
   /* Create the queue mutex */
   SensorQueueMutex = xSemaphoreCreateMutex();
 
+  // /* Get local MacAddress */
+  // localMACAddress = BLEDevice::getAddress();
+
+  /**
+   *  Environmental sensor setup
+   */
+  
+  /* Config sensor pins */
+  gpio_pad_select_gpio(DHTPIN);
+  gpio_set_direction(DHTPIN, GPIO_MODE_INPUT);
+
+  /* Initializes sensor */
+  dht.begin();
+  delay(2000);
+
   /** 
-   * BLE environment setup
+   * BLE setup
    */
 
   BLEDevice::init("");
@@ -257,7 +283,7 @@ void setup()
   pBLEScan->setWindow(99); // less or equal setInterval value
 
   /**
-   *  SIM800L environment setup
+   *  SIM800L setup
    */
 
   // Set serial monitor debugging window baud rate to 115200
@@ -491,36 +517,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
             break;
 
           case HYGRO_SENSOR_TYPE:
-            hygroSensor.header.name = foundDevices.getDevice(i).getName();
-            hygroSensor.header.addr = foundDevices.getDevice(i).getAddress().toString();
-            hygroSensor.header.time = getTime();
-            hygroSensor.battery = data[HYGRO_BATTERY_POS];
-            hygroSensor.humidity = ((data[HYGRO_HUMIDITY_POS]) << 8) + data[HYGRO_HUMIDITY_POS + 1];
-            hygroSensor.temperature = ((data[HYGRO_TEMPERATURE_POS]) << 8) + data[HYGRO_TEMPERATURE_POS + 1];
-
-            /* Enter critical session to access the queue */
-            xSemaphoreTake (SensorQueueMutex, portMAX_DELAY);
-
-            /* Stores sensor sample on queue */
-            hygroSensorQueue.push (hygroSensor);
-#ifdef DEBUG
-            /* Print latest sample values */
-            Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name.c_str());
-            Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
-            Serial.printf("Sensor Time: %d\n", (int) hygroSensorQueue.back().header.time);
-            Serial.printf("Sensor Batt: %d\n", hygroSensorQueue.back().battery);
-            Serial.printf("Sensor Hum.: %d\n", hygroSensorQueue.back().humidity);
-            Serial.printf("Sensor Temp: %d\n", hygroSensorQueue.back().temperature);
-            Serial.printf("Queue size: %d\n", hygroSensorQueue.size());
-#endif
-            /* Limits the queue size */
-            if (hygroSensorQueue.size() > QUEUE_MAX_LEN)
-            {
-              hygroSensorQueue.pop();
-            }
-            /* Exit critical session */
-            xSemaphoreGive (SensorQueueMutex);
-
+            /* Intended for future use with BLE environmental sensor */
             break;
 
           default:
@@ -531,6 +528,37 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     }
     // delete results from BLE Scan Buffer to release memory
     pBLEScan->clearResults();
+
+    /* Get local Environmental Sensor data (temperature, humidity) */
+    hygroSensor.header.name = "REG_SENSOR_HYGRO";
+    hygroSensor.header.addr = localMACAddress.toString();
+    hygroSensor.header.time = getTime();
+    hygroSensor.battery = 100;  
+    hygroSensor.humidity = dht.readHumidity();
+    hygroSensor.temperature = dht.readTemperature();
+
+    /* Enter critical session to access the queue */
+    xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
+
+    /* Stores sensor sample on queue */
+    hygroSensorQueue.push(hygroSensor);
+#ifdef DEBUG
+    /* Print latest sample values */
+    Serial.printf("Sensor Name: %s\n", hygroSensorQueue.back().header.name.c_str());
+    Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
+    Serial.printf("Sensor Time: %d\n", (int)hygroSensorQueue.back().header.time);
+    Serial.printf("Sensor Batt: %d\n", hygroSensorQueue.back().battery);
+    Serial.printf("Sensor Hum.: %d\n", hygroSensorQueue.back().humidity);
+    Serial.printf("Sensor Temp: %d\n", hygroSensorQueue.back().temperature);
+    Serial.printf("Queue size: %d\n", hygroSensorQueue.size());
+#endif
+    /* Limits the queue size */
+    if (hygroSensorQueue.size() > QUEUE_MAX_LEN)
+    {
+      hygroSensorQueue.pop();
+    }
+    /* Exit critical session */
+    xSemaphoreGive(SensorQueueMutex);
 
     vTaskDelay(29000 / portTICK_PERIOD_MS);
   }
@@ -594,11 +622,8 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 #ifdef DEBUG_REQUEST
       SerialMon.println("Performing Keep-Alive request...");
 #endif
-      /* Get local MacAddress */
-      BLEAddress addr = BLEDevice::getAddress();
-
       /* JSON request data */
-      httpRequestBody = "{\"macAddress\":\"" + String(addr.toString().c_str()) + "\","
+      httpRequestBody = "{\"macAddress\":\"" + String(localMACAddress.toString().c_str()) + "\","
                                                                                  "\"timeStamp\":" +
                         String(getTime()) + ","
                                             "\"sensorsConected\":" +

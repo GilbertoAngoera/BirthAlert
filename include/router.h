@@ -75,8 +75,8 @@ typedef struct vulva_sensor_data {
 typedef struct hygrometer_sensor_data {
 	sensor_data_t header;
 	uint8_t battery;
-	uint16_t humidity;
-	uint16_t temperature;
+	float humidity;
+	float temperature;
 } hygrometer_sensor_data_t;
 
 
