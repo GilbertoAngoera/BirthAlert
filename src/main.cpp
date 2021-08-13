@@ -66,6 +66,9 @@ SemaphoreHandle_t SensorQueueMutex;
 static BLEUUID sensorUUID("befab990-ddb3-11eb-ba80-0242ac130004");
 static BLEUUID testUUID("c1462ae7-9493-4018-b6d3-dda50387989c");
 
+/* Local MAC Address */
+BLEAddress localMACAddress("");
+
 int scanTime = 1; //In seconds
 BLEScan *pBLEScan;
 
@@ -254,8 +257,6 @@ void setup()
   /**
    *  Environmental sensor setup
    */
-  
-  /* Initializes sensor */
   dht.setup (DHTPIN, DHTesp::DHT22);
 
   /** 
@@ -268,6 +269,9 @@ void setup()
   pBLEScan->setActiveScan(false); //active scan uses more power, but get results faster
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99); // less or equal setInterval value
+  
+  /* Get local MAC Address */
+  localMACAddress = BLEDevice::getAddress();
 
   /**
    *  SIM800L setup
@@ -518,7 +522,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
 
     /* Get local Environmental Sensor data (temperature, humidity) */
     hygroSensor.header.name = "REG_SENSOR_HYGRO";
-    hygroSensor.header.addr = "";
+    hygroSensor.header.addr = localMACAddress.toString();
     hygroSensor.header.time = getTime();
     hygroSensor.battery = 100;  
     hygroSensor.humidity = dht.getHumidity();
@@ -569,9 +573,6 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
   String response;
   int statusCode = 0;
   #endif
-
-  /* Get local MAC Address */
-  BLEAddress localMACAddress = BLEDevice::getAddress();
 
   /* Creates the HTTP client */
   HttpClient http = HttpClient (client, server, port);
@@ -770,10 +771,6 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
 #ifdef DEBUG_REQUEST
           SerialMon.println("Performing Hygro Sensor request...");
 #endif
-          /* Converts humidity and temperature to floating format */
-          float temperature = ((float)hygroSensor.temperature) / 10;
-          float humidity = ((float)hygroSensor.humidity) / 10;
-
           /* JSON request data */
           httpRequestBody = "{\"macAddress\":\"" + String(hygroSensor.header.addr.c_str()) + "\","
                                                                                              "\"battery\":\"" +
@@ -781,9 +778,9 @@ void Cloud_Task (void *pvParameters __attribute__((unused))) // This is a Task.
                                                           "\"timeStamp\":" +
                             String(hygroSensor.header.time) + ","
                                                               "\"temp_environment\":" +
-                            String(temperature) + ","
+                            String(hygroSensor.temperature) + ","
                                                   "\"humidity\":" +
-                            String(humidity) + ","
+                            String(hygroSensor.humidity) + ","
                                                "\"token\":\"" +
                             String(apiKey) + "\"}";
 
