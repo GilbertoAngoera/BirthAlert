@@ -16,12 +16,11 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "esp_system.h"
+#include "DHTesp.h"
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
-#include <DHT.h>
-#include <DHT_U.h>
 #include <queue>
 #include <sys/time.h>
 #include <time.h>
@@ -47,10 +46,9 @@ using namespace std;
 #define BLINK_GPIO      GPIO_NUM_13
 
 /* Environmental sensor definitions */
-#define DHTPIN          GPIO_NUM_12
-#define DHTTYPE         DHT22    // Sensor model (DHT22 AM2302)
+#define DHTPIN          GPIO_NUM_14
 
-DHT dht(DHTPIN, DHTTYPE);
+DHTesp dht;
 
 /* Global queues to store sensor samples */
 queue<thigh_sensor_data_t> thighSensorQueue;
@@ -258,12 +256,11 @@ void setup()
    */
   
   /* Config sensor pins */
-  gpio_pad_select_gpio(DHTPIN);
-  gpio_set_direction(DHTPIN, GPIO_MODE_INPUT);
+  // gpio_pad_select_gpio(DHTPIN);
+  // gpio_set_direction(DHTPIN, GPIO_MODE_INPUT);
 
   /* Initializes sensor */
-  dht.begin();
-  delay(2000);
+  dht.setup (DHTPIN, DHTesp::DHT22);
 
   /** 
    * BLE setup
@@ -528,8 +525,10 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     hygroSensor.header.addr = "";
     hygroSensor.header.time = getTime();
     hygroSensor.battery = 100;  
-    hygroSensor.humidity = dht.readHumidity();
-    hygroSensor.temperature = dht.readTemperature();
+    hygroSensor.humidity = (float) dht.getHumidity();
+    Serial.println (dht.getHumidity());
+    hygroSensor.temperature = (float) dht.getTemperature();
+    Serial.println (dht.getTemperature());
 
     /* Enter critical session to access the queue */
     xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -543,8 +542,8 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
     Serial.printf("Sensor Time: %d\n", (int)hygroSensorQueue.back().header.time);
     Serial.printf("Sensor Batt: %d\n", hygroSensorQueue.back().battery);
-    Serial.printf("Sensor Hum.: %d\n", hygroSensorQueue.back().humidity);
-    Serial.printf("Sensor Temp: %d\n", hygroSensorQueue.back().temperature);
+    Serial.printf("Sensor Hum.: %1.1f\n", hygroSensorQueue.back().humidity);
+    Serial.printf("Sensor Temp: %1.1f\n", hygroSensorQueue.back().temperature);
     Serial.printf("Queue size: %d\n", hygroSensorQueue.size());
 #endif
     /* Limits the queue size */
