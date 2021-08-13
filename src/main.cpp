@@ -255,10 +255,6 @@ void setup()
    *  Environmental sensor setup
    */
   
-  /* Config sensor pins */
-  // gpio_pad_select_gpio(DHTPIN);
-  // gpio_set_direction(DHTPIN, GPIO_MODE_INPUT);
-
   /* Initializes sensor */
   dht.setup (DHTPIN, DHTesp::DHT22);
 
@@ -525,10 +521,8 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     hygroSensor.header.addr = "";
     hygroSensor.header.time = getTime();
     hygroSensor.battery = 100;  
-    hygroSensor.humidity = (float) dht.getHumidity();
-    Serial.println (dht.getHumidity());
-    hygroSensor.temperature = (float) dht.getTemperature();
-    Serial.println (dht.getTemperature());
+    hygroSensor.humidity = dht.getHumidity();
+    hygroSensor.temperature = dht.getTemperature();
 
     /* Enter critical session to access the queue */
     xSemaphoreTake(SensorQueueMutex, portMAX_DELAY);
@@ -542,7 +536,7 @@ void Sensor_Task(void *pvParameters __attribute__((unused))) // This is a Task.
     Serial.printf("Sensor Addr: %s\n", hygroSensorQueue.back().header.addr.c_str());
     Serial.printf("Sensor Time: %d\n", (int)hygroSensorQueue.back().header.time);
     Serial.printf("Sensor Batt: %d\n", hygroSensorQueue.back().battery);
-    Serial.printf("Sensor Hum.: %1.1f\n", hygroSensorQueue.back().humidity);
+    Serial.printf("Sensor Hum.: %1.0f\n", hygroSensorQueue.back().humidity);
     Serial.printf("Sensor Temp: %1.1f\n", hygroSensorQueue.back().temperature);
     Serial.printf("Queue size: %d\n", hygroSensorQueue.size());
 #endif
