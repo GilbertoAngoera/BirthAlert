@@ -34,7 +34,7 @@ using namespace std;
 // #define PUBLISH_RANDOM_DATA
 
 /* GPIO pin to blink (blue LED on LILYGO T-Call SIM800L board) */
-#define BLINK_GPIO GPIO_NUM_13
+#define BLINK_GPIO GPIO_NUM_2
 
 /* Global queues to store sensor samples */
 queue<thigh_sensor_data_t> thighSensorQueue;
